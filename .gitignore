@@ -1,0 +1,25 @@
+# .NET build output
+bin/
+obj/
+
+# Godot generated files
+godot-client/.godot/
+
+# SpacetimeDB generated client bindings
+godot-client/spacetime_bindings/
+module_bindings/
+
+# Godot UID files for generated bindings
+*.g.cs.uid
+
+# IDE / editor
+.vscode/
+*.user
+*.suo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# SpacetimeDB token (local dev)
+spacetime_token.txt

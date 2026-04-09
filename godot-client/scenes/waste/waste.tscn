@@ -1,0 +1,64 @@
+[gd_scene format=3 uid="uid://dt6dxcbysqucx"]
+
+[ext_resource type="Script" uid="uid://cva7b2v5axjgv" path="res://scenes/waste/Waste.cs" id="1_u24a1"]
+[ext_resource type="Script" uid="uid://lgnpk70neftg" path="res://scenes/waste/PlayerStatsPanel.cs" id="2_stats"]
+
+[node name="Waste" type="Node2D" unique_id=800160988]
+script = ExtResource("1_u24a1")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=2081387567]
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer" unique_id=1894040999]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/MarginContainer" unique_id=1343791926]
+layout_mode = 2
+
+[node name="LeftSide" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer" unique_id=1475836808]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Middle" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer" unique_id=682266470]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PlayerStatsPanel" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/Middle" unique_id=210374254]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 0
+script = ExtResource("2_stats")
+
+[node name="HeaderLabel" type="Label" parent="CanvasLayer/MarginContainer/HBoxContainer/Middle/PlayerStatsPanel" unique_id=974718336]
+layout_mode = 2
+text = "Player Stats"
+horizontal_alignment = 1
+
+[node name="RightSide" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer" unique_id=1325974065]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Top" type="HBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightSide" unique_id=1415258686]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Middle" type="HBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightSide" unique_id=1412844210]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Activities" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightSide/Middle" unique_id=230876899]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Bottom" type="HBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightSide" unique_id=289067606]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PlayerSpawnLocation" type="Marker2D" parent="." unique_id=984251143]
+unique_name_in_owner = true
+position = Vector2(572, 306)

@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "client", "client.csproj", "{630EE505-93C2-4D69-B26C-574DE0EE6D41}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StdbModule", "spacetimedb\StdbModule.csproj", "{36144BEE-7E7B-4C54-B457-B78C8C1ADCAA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "godot-client", "godot-client\godot-client.csproj", "{D72431C6-29F5-4698-BF49-544CA1C9ED2F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{630EE505-93C2-4D69-B26C-574DE0EE6D41}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{630EE505-93C2-4D69-B26C-574DE0EE6D41}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{630EE505-93C2-4D69-B26C-574DE0EE6D41}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{630EE505-93C2-4D69-B26C-574DE0EE6D41}.Release|Any CPU.Build.0 = Release|Any CPU
+		{36144BEE-7E7B-4C54-B457-B78C8C1ADCAA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{36144BEE-7E7B-4C54-B457-B78C8C1ADCAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{36144BEE-7E7B-4C54-B457-B78C8C1ADCAA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{36144BEE-7E7B-4C54-B457-B78C8C1ADCAA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D72431C6-29F5-4698-BF49-544CA1C9ED2F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D72431C6-29F5-4698-BF49-544CA1C9ED2F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D72431C6-29F5-4698-BF49-544CA1C9ED2F}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{D72431C6-29F5-4698-BF49-544CA1C9ED2F}.Release|Any CPU.Build.0 = Debug|Any CPU
+	EndGlobalSection
+EndGlobal

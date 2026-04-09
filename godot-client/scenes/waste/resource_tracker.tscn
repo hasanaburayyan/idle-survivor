@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://bmw2ixd8nj1t8"]
+
+[ext_resource type="Script" uid="uid://bd83fqw1ar6l7" path="res://scenes/waste/ResourceTracker.cs" id="1_jrylr"]
+
+[node name="ResourceTracker" type="HBoxContainer" unique_id=1965742584]
+script = ExtResource("1_jrylr")
+
+[node name="NameLabel" type="Label" parent="." unique_id=1062435633]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Resource Name:"
+
+[node name="AmountLabel" type="Label" parent="." unique_id=67737205]
+unique_name_in_owner = true
+layout_mode = 2
+text = "<AMOUNT>"

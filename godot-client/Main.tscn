@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://kt873p1bs3nd"]
+
+[ext_resource type="Script" uid="uid://cd3qcwhg8d2ef" path="res://Main.cs" id="1_glv2v"]
+
+[node name="Main" type="Node2D" unique_id=1651756053]
+script = ExtResource("1_glv2v")
+
+[node name="IdentityPrompt" type="VBoxContainer" parent="." unique_id=200000001]
+unique_name_in_owner = true
+visible = false
+offset_left = 450.0
+offset_top = 200.0
+offset_right = 700.0
+offset_bottom = 320.0
+
+[node name="PromptLabel" type="Label" parent="IdentityPrompt"]
+text = "Saved identity found. Use it?"
+horizontal_alignment = 1
+
+[node name="UseSavedButton" type="Button" parent="IdentityPrompt" unique_id=200000002]
+unique_name_in_owner = true
+text = "Use Saved"
+
+[node name="NewIdentityButton" type="Button" parent="IdentityPrompt" unique_id=200000003]
+unique_name_in_owner = true
+text = "New Identity"
+
+[node name="StartButton" type="Button" parent="." unique_id=741327891]
+unique_name_in_owner = true
+visible = false
+offset_left = 526.0
+offset_top = 280.0
+offset_right = 600.0
+offset_bottom = 311.0
+text = "Start"
