@@ -39,6 +39,19 @@ public static partial class Module {
                 Value = value
             });
         }
+
+        if (stat == StatType.Intelligence && value >= 5) {
+            var hasStudy = ctx.Db.Activity.by_activity_participant_type
+                .Filter((Participant: owner, Type: ActivityType.Study)).Any();
+            if (!hasStudy) {
+                ctx.Db.Activity.Insert(new Activity {
+                    Participant = owner,
+                    Type = ActivityType.Study,
+                    Cost = new List<ActivityCost>(),
+                    DurationMs = 30000
+                });
+            }
+        }
     }
 
     public static int GetStat(ReducerContext ctx, Identity owner, StatType stat) {

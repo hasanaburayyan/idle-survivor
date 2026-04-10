@@ -42,7 +42,8 @@ public static partial class Module {
         ctx.Db.Activity.Insert(new Activity{
             Participant = ctx.Sender,
             Type = ActivityType.Scavenge,
-            Cost = []
+            Cost = [],
+            DurationMs = 500
         });
 
         ctx.Db.Activity.Insert(new Activity {
@@ -50,7 +51,8 @@ public static partial class Module {
             Type = ActivityType.CarbLoad,
             Cost = [
                 new ActivityCost{Type = ResourceType.Food, Amount = 60}
-            ]
+            ],
+            DurationMs = 2000
         });
     }
 

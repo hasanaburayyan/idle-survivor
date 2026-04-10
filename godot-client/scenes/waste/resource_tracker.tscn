@@ -4,6 +4,7 @@
 
 [node name="ResourceTracker" type="HBoxContainer" unique_id=1965742584]
 script = ExtResource("1_jrylr")
+theme_override_constants/separation = 12
 
 [node name="NameLabel" type="Label" parent="." unique_id=1062435633]
 unique_name_in_owner = true

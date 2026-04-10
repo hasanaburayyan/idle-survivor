@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cva7b2v5axjgv" path="res://scenes/waste/Waste.cs" id="1_u24a1"]
 [ext_resource type="Script" uid="uid://lgnpk70neftg" path="res://scenes/waste/PlayerStatsPanel.cs" id="2_stats"]
+[ext_resource type="Theme" path="res://theme/default_theme.tres" id="3_theme"]
 
 [node name="Waste" type="Node2D" unique_id=800160988]
 script = ExtResource("1_u24a1")
@@ -14,9 +15,15 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("3_theme")
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_bottom = 20
 
 [node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/MarginContainer" unique_id=1343791926]
 layout_mode = 2
+theme_override_constants/separation = 24
 
 [node name="LeftSide" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer" unique_id=1475836808]
 unique_name_in_owner = true
@@ -35,6 +42,7 @@ script = ExtResource("2_stats")
 
 [node name="HeaderLabel" type="Label" parent="CanvasLayer/MarginContainer/HBoxContainer/Middle/PlayerStatsPanel" unique_id=974718336]
 layout_mode = 2
+theme_override_font_sizes/font_size = 28
 text = "Player Stats"
 horizontal_alignment = 1
 

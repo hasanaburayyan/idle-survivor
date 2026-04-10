@@ -1,0 +1,17 @@
+[gd_resource type="Theme" format=3]
+
+[resource]
+default_font_size = 24
+
+Button/font_sizes/font_size = 22
+Button/constants/h_separation = 12
+
+Label/font_sizes/font_size = 24
+
+HBoxContainer/constants/separation = 12
+VBoxContainer/constants/separation = 8
+
+MarginContainer/constants/margin_left = 20
+MarginContainer/constants/margin_right = 20
+MarginContainer/constants/margin_top = 20
+MarginContainer/constants/margin_bottom = 20

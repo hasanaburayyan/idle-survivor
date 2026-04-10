@@ -5,7 +5,8 @@ public enum ActivityType : byte
 {
     Scavenge,
     LootBigWood,
-    CarbLoad
+    CarbLoad,
+    Study
 }
 
 [SpacetimeDB.Type]
@@ -26,6 +27,29 @@ public static partial class Module
         public Identity Participant;
         public ActivityType Type;
         public List<ActivityCost> Cost;
+        public ulong DurationMs;
+    }
+
+    [SpacetimeDB.Table(Accessor = "ActiveTask", Public = true)]
+    public partial struct ActiveTask {
+        [SpacetimeDB.PrimaryKey]
+        [SpacetimeDB.AutoInc]
+        public ulong Id;
+        [SpacetimeDB.Unique]
+        public Identity Participant;
+        public ActivityType Type;
+        public Timestamp StartedAt;
+        public Timestamp CompletesAt;
+    }
+
+    [SpacetimeDB.Table(Accessor = "TaskCompletion", Scheduled = nameof(CompleteTask))]
+    public partial struct TaskCompletion {
+        [SpacetimeDB.PrimaryKey]
+        [SpacetimeDB.AutoInc]
+        public ulong ScheduleId;
+        public ScheduleAt ScheduledAt;
+        public Identity Participant;
+        public ActivityType Type;
     }
 
     [SpacetimeDB.Table(Accessor = "ActivitySchedule", Public = true, Scheduled = nameof(ProcessScheduledActivity))]
@@ -57,6 +81,9 @@ public static partial class Module
             case ActivityType.CarbLoad:
                 CarbLoad(ctx, arg.Participant);
                 break;
+            case ActivityType.Study:
+                Study(ctx, arg.Participant);
+                break;
             default:
                 throw new Exception("Unknown activity type");
         }
@@ -81,7 +108,28 @@ public static partial class Module
         var values = Enum.GetValues<ResourceType>();
         var resourceType = values[random.Next(values.Length)];
 
-        AddResourceToPlayer(ctx, participant, resourceType, 1);
+        var amount = (ulong)1;
+        switch (resourceType) {
+            case ResourceType.Food:
+                amount = (ulong)GetStat(ctx, participant, StatType.Perception);
+                break;
+            case ResourceType.Fabric:
+                amount = (ulong)GetStat(ctx, participant, StatType.Intelligence);
+                break;
+            case ResourceType.Metal:
+                amount = (ulong)GetStat(ctx, participant, StatType.Strength);
+                break;
+            case ResourceType.Money:
+                amount = (ulong)GetStat(ctx, participant, StatType.Wit);
+                break;
+            case ResourceType.Parts:
+                amount = (ulong)GetStat(ctx, participant, StatType.Dexterity);
+                break;
+            case ResourceType.Wood:
+                amount = (ulong)GetStat(ctx, participant, StatType.Endurance);
+                break;
+        }
+        AddResourceToPlayer(ctx, participant, resourceType, amount);
     }
 
     [SpacetimeDB.Reducer]
@@ -110,6 +158,10 @@ public static partial class Module
         var random = new Random();
         var stats = Enum.GetValues<StatType>();
         var statToUpgrade = stats[random.Next(stats.Length)];
+        while (statToUpgrade == StatType.Health || statToUpgrade == StatType.MaxHealth) 
+        {
+            statToUpgrade = stats[random.Next(stats.Length)];
+        }
 
         // Upgrade the stat
         SetStat(ctx, participant, statToUpgrade, GetStat(ctx, participant, statToUpgrade) + 1);
@@ -126,6 +178,32 @@ public static partial class Module
             }
         ];
 
+        ctx.Db.Activity.Id.Update(carbActivity);
+    }
+
+    private static void CarbLoadReward(ReducerContext ctx, Identity participant) {
+        var random = new Random();
+        var stats = Enum.GetValues<StatType>();
+        var statToUpgrade = stats[random.Next(stats.Length)];
+        while (statToUpgrade == StatType.Health || statToUpgrade == StatType.MaxHealth)
+        {
+            statToUpgrade = stats[random.Next(stats.Length)];
+        }
+        SetStat(ctx, participant, statToUpgrade, GetStat(ctx, participant, statToUpgrade) + 1);
+
+        var totalStats = (ulong)(
+            GetStat(ctx, participant, StatType.Dexterity) +
+            GetStat(ctx, participant, StatType.Endurance) +
+            GetStat(ctx, participant, StatType.Intelligence) +
+            GetStat(ctx, participant, StatType.Perception) +
+            GetStat(ctx, participant, StatType.Wit) +
+            GetStat(ctx, participant, StatType.Strength)
+        );
+        var nextCost = totalStats * 10;
+
+        var carbActivity = ctx.Db.Activity.by_activity_participant_type
+            .Filter((Participant: participant, Type: ActivityType.CarbLoad)).First();
+        carbActivity.Cost = [new ActivityCost { Amount = nextCost, Type = ResourceType.Food }];
         ctx.Db.Activity.Id.Update(carbActivity);
     }
 
@@ -153,5 +231,74 @@ public static partial class Module
     public static void StartActiveSchedules(ReducerContext ctx, Identity participant) {
         ActivityOnInterval(ctx, participant, ActivityType.Scavenge, 5000, true);
         ActivityOnInterval(ctx, participant, ActivityType.LootBigWood, 20_000, true);
+    }
+
+    private static void Study(ReducerContext ctx, Identity participant) {
+        SetStat(ctx, participant, StatType.Intelligence,
+            GetStat(ctx, participant, StatType.Intelligence) + 3);
+    }
+
+    [SpacetimeDB.Reducer]
+    public static void StartActivity(ReducerContext ctx, ActivityType type) {
+        if (ctx.Db.ActiveTask.Participant.Find(ctx.Sender) is ActiveTask) {
+            throw new Exception("Already doing an activity");
+        }
+
+        var activity = ctx.Db.Activity.by_activity_participant_type
+            .Filter((Participant: ctx.Sender, Type: type)).First();
+
+        foreach (var cost in activity.Cost) {
+            var resource = ctx.Db.ResourceTracker.by_owner_and_type
+                .Filter((Owner: ctx.Sender, Type: cost.Type)).First();
+            if (resource.Amount < cost.Amount) {
+                throw new Exception($"Insufficient {cost.Type}");
+            }
+        }
+
+        foreach (var cost in activity.Cost) {
+            var resource = ctx.Db.ResourceTracker.by_owner_and_type
+                .Filter((Owner: ctx.Sender, Type: cost.Type)).First();
+            resource.Amount -= cost.Amount;
+            ctx.Db.ResourceTracker.Id.Update(resource);
+        }
+
+        var completesAt = ctx.Timestamp + TimeSpan.FromMilliseconds(activity.DurationMs);
+
+        ctx.Db.ActiveTask.Insert(new ActiveTask {
+            Participant = ctx.Sender,
+            Type = type,
+            StartedAt = ctx.Timestamp,
+            CompletesAt = completesAt
+        });
+
+        ctx.Db.TaskCompletion.Insert(new TaskCompletion {
+            Participant = ctx.Sender,
+            Type = type,
+            ScheduledAt = new ScheduleAt.Time(completesAt)
+        });
+    }
+
+    [SpacetimeDB.Reducer]
+    public static void CompleteTask(ReducerContext ctx, TaskCompletion task) {
+        switch (task.Type) {
+            case ActivityType.Scavenge:
+                Scavenge(ctx, task.Participant);
+                break;
+            case ActivityType.LootBigWood:
+                LootBigWood(ctx, task.Participant);
+                break;
+            case ActivityType.CarbLoad:
+                CarbLoadReward(ctx, task.Participant);
+                break;
+            case ActivityType.Study:
+                Study(ctx, task.Participant);
+                break;
+            default:
+                throw new Exception("Unknown activity type");
+        }
+
+        if (ctx.Db.ActiveTask.Participant.Find(task.Participant) is ActiveTask active) {
+            ctx.Db.ActiveTask.Id.Delete(active.Id);
+        }
     }
 }

@@ -46,6 +46,8 @@ public partial class PlayerStatsPanel : VBoxContainer
 		}
 
 		var row = new HBoxContainer();
+		row.AddThemeConstantOverride("separation", 8);
+
 		var nameLabel = new Label();
 		nameLabel.Text = stat.Stat.ToString();
 		nameLabel.SizeFlagsHorizontal = SizeFlags.Fill | SizeFlags.Expand;
