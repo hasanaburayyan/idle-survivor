@@ -9,11 +9,11 @@ public partial class ResourceTracker : HBoxContainer
 
 	private ulong trackingId;
 
-	// Called when the node enters the scene tree for the first time.
 	public override void _Ready()
 	{
 		NameLabel = GetNode<Label>("%NameLabel");
 		AmountLabel = GetNode<Label>("%AmountLabel");
+		AmountLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.4f));
 	}
 
 	public void InitResourceTracking(ulong id) {

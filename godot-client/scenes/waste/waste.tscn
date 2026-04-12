@@ -4,69 +4,100 @@
 [ext_resource type="Script" uid="uid://lgnpk70neftg" path="res://scenes/waste/PlayerStatsPanel.cs" id="2_stats"]
 [ext_resource type="Theme" path="res://theme/default_theme.tres" id="3_theme"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.12, 0.12, 0.15, 0.9)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_left = 8
+corner_radius_bottom_right = 8
+content_margin_left = 12.0
+content_margin_top = 10.0
+content_margin_right = 12.0
+content_margin_bottom = 12.0
+
 [node name="Waste" type="Node2D" unique_id=800160988]
 script = ExtResource("1_u24a1")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=2081387567]
 
 [node name="MarginContainer" type="MarginContainer" parent="CanvasLayer" unique_id=1894040999]
-anchors_preset = 15
 anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+anchor_bottom = 0.5
 theme = ExtResource("3_theme")
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_bottom = 20
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_bottom = 12
 
 [node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/MarginContainer" unique_id=1343791926]
 layout_mode = 2
-theme_override_constants/separation = 24
+theme_override_constants/separation = 12
 
-[node name="LeftSide" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer" unique_id=1475836808]
+[node name="LeftPanel" type="PanelContainer" parent="CanvasLayer/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="LeftSide" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/LeftPanel" unique_id=1475836808]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_horizontal = 3
+theme_override_constants/separation = 6
 
-[node name="Middle" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer" unique_id=682266470]
+[node name="ResourcesHeader" type="Label" parent="CanvasLayer/MarginContainer/HBoxContainer/LeftPanel/LeftSide"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Resources"
+horizontal_alignment = 1
+
+[node name="HeaderSep" type="HSeparator" parent="CanvasLayer/MarginContainer/HBoxContainer/LeftPanel/LeftSide"]
+layout_mode = 2
+
+[node name="MiddlePanel" type="PanelContainer" parent="CanvasLayer/MarginContainer/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="PlayerStatsPanel" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/Middle" unique_id=210374254]
+[node name="PlayerStatsPanel" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/MiddlePanel" unique_id=210374254]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 0
+theme_override_constants/separation = 6
 script = ExtResource("2_stats")
 
-[node name="HeaderLabel" type="Label" parent="CanvasLayer/MarginContainer/HBoxContainer/Middle/PlayerStatsPanel" unique_id=974718336]
+[node name="HeaderLabel" type="Label" parent="CanvasLayer/MarginContainer/HBoxContainer/MiddlePanel/PlayerStatsPanel" unique_id=974718336]
 layout_mode = 2
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 20
 text = "Player Stats"
 horizontal_alignment = 1
 
-[node name="RightSide" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer" unique_id=1325974065]
+[node name="HeaderSep" type="HSeparator" parent="CanvasLayer/MarginContainer/HBoxContainer/MiddlePanel/PlayerStatsPanel"]
+layout_mode = 2
+
+[node name="RightPanel" type="PanelContainer" parent="CanvasLayer/MarginContainer/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
-
-[node name="Top" type="HBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightSide" unique_id=1415258686]
-layout_mode = 2
 size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="Middle" type="HBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightSide" unique_id=1412844210]
+[node name="RightContent" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightPanel"]
 layout_mode = 2
-size_flags_vertical = 3
+theme_override_constants/separation = 6
 
-[node name="Activities" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightSide/Middle" unique_id=230876899]
+[node name="ActivitiesHeader" type="Label" parent="CanvasLayer/MarginContainer/HBoxContainer/RightPanel/RightContent"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Activities"
+horizontal_alignment = 1
+
+[node name="HeaderSep" type="HSeparator" parent="CanvasLayer/MarginContainer/HBoxContainer/RightPanel/RightContent"]
+layout_mode = 2
+
+[node name="Activities" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightPanel/RightContent" unique_id=230876899]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Bottom" type="HBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightSide" unique_id=289067606]
-layout_mode = 2
-size_flags_vertical = 3
 
 [node name="PlayerSpawnLocation" type="Marker2D" parent="." unique_id=984251143]
 unique_name_in_owner = true
-position = Vector2(572, 306)
+position = Vector2(576, 500)

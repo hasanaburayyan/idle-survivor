@@ -55,6 +55,8 @@ public partial class PlayerStatsPanel : VBoxContainer
 
 		var valueLabel = new Label();
 		valueLabel.Text = stat.Value.ToString();
+		valueLabel.HorizontalAlignment = HorizontalAlignment.Right;
+		valueLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.4f));
 		row.AddChild(valueLabel);
 
 		AddChild(row);

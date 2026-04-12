@@ -105,7 +105,8 @@ public partial class Waste : Node2D
 		var sprite = PlayerScene.Instantiate<Player>();
 		var viewport = GetViewportRect();
 		float x = _rng.RandfRange(100, viewport.Size.X - 100);
-		sprite.Position = new Vector2(x, PlayerSpawnPosition.Position.Y);
+		float y = PlayerSpawnPosition.Position.Y + _rng.RandfRange(-20, 20);
+		sprite.Position = new Vector2(x, y);
 		sprite.ZIndex = 0;
 		AddChild(sprite);
 		sprite.SetName(displayName);
@@ -151,8 +152,20 @@ public partial class Waste : Node2D
 
 	private void OnPlayerUpdate(EventContext ctx, SpacetimeDB.Types.Player oldPlayer, SpacetimeDB.Types.Player newPlayer)
 	{
+		if (newPlayer.Identity == SpacetimeNetworkManager.Instance.LocalIdentity)
+		{
+			if (oldPlayer.DisplayName != newPlayer.DisplayName)
+				_localPlayerNode.SetName(newPlayer.DisplayName);
+			return;
+		}
+
 		if (!_inGuildSession) return;
-		if (newPlayer.Identity == SpacetimeNetworkManager.Instance.LocalIdentity) return;
+
+		if (oldPlayer.DisplayName != newPlayer.DisplayName
+			&& _guildMemberSprites.TryGetValue(newPlayer.Identity, out var sprite))
+		{
+			sprite.SetName(newPlayer.DisplayName);
+		}
 
 		if (oldPlayer.Online && !newPlayer.Online)
 			DespawnMemberSprite(newPlayer.Identity);

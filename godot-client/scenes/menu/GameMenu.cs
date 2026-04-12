@@ -7,22 +7,33 @@ using SpacetimeDB.Types;
 
 public partial class GameMenu : CanvasLayer
 {
+	private static readonly Color GoldAccent = new(0.9f, 0.85f, 0.4f);
+	private static readonly Color OfficerBlue = new(0.4f, 0.6f, 1.0f);
+	private static readonly Color MutedGray = new(0.6f, 0.6f, 0.6f);
+	private static readonly Color DangerRed = new(0.9f, 0.3f, 0.3f);
+
 	private PanelContainer _panel;
 	private TabBar _tabBar;
 	private Control _generalTab;
 	private Control _socialTab;
 
-	// No-guild controls
-	private VBoxContainer _noGuildContainer;
+	// No-guild UI
+	private ScrollContainer _noGuildContainer;
 	private LineEdit _guildNameInput;
 	private Button _createGuildButton;
 	private VBoxContainer _invitesList;
+	private LineEdit _guildSearchInput;
+	private VBoxContainer _guildSearchList;
+	private PanelContainer _pendingRequestPanel;
+	private Label _pendingRequestLabel;
+	private Button _cancelRequestButton;
 
-	// In-guild controls
+	// In-guild UI
 	private VBoxContainer _inGuildContainer;
 	private Label _guildNameLabel;
 	private VBoxContainer _membersList;
 	private VBoxContainer _guildResourcesList;
+	private HBoxContainer _inviteRow;
 	private LineEdit _invitePlayerInput;
 	private Button _inviteButton;
 	private Button _leaveGuildButton;
@@ -30,10 +41,74 @@ public partial class GameMenu : CanvasLayer
 	private Button _enterSessionButton;
 	private Button _leaveSessionButton;
 
+	// Admin panel
+	private PanelContainer _adminPanelContainer;
+	private VBoxContainer _joinRequestsList;
+
+	// Profile UI (General tab)
+	private Label _currentNameLabel;
+	private LineEdit _nameInput;
+	private Button _saveNameButton;
+
 	[Signal]
 	public delegate void GuildSessionChangedEventHandler(bool inSession);
 
 	private bool _isOpen;
+
+	private static StyleBoxFlat CreatePanelStyle()
+	{
+		var style = new StyleBoxFlat();
+		style.BgColor = new Color(0.12f, 0.12f, 0.15f, 0.9f);
+		style.CornerRadiusTopLeft = 8;
+		style.CornerRadiusTopRight = 8;
+		style.CornerRadiusBottomLeft = 8;
+		style.CornerRadiusBottomRight = 8;
+		style.ContentMarginLeft = 16;
+		style.ContentMarginTop = 12;
+		style.ContentMarginRight = 16;
+		style.ContentMarginBottom = 12;
+		return style;
+	}
+
+	private static StyleBoxFlat CreateSubPanelStyle()
+	{
+		var style = new StyleBoxFlat();
+		style.BgColor = new Color(0.16f, 0.16f, 0.19f, 0.9f);
+		style.CornerRadiusTopLeft = 6;
+		style.CornerRadiusTopRight = 6;
+		style.CornerRadiusBottomLeft = 6;
+		style.CornerRadiusBottomRight = 6;
+		style.ContentMarginLeft = 12;
+		style.ContentMarginTop = 10;
+		style.ContentMarginRight = 12;
+		style.ContentMarginBottom = 10;
+		return style;
+	}
+
+	private static Label CreateSectionHeader(string text)
+	{
+		var label = new Label();
+		label.Text = text;
+		label.AddThemeFontSizeOverride("font_size", 20);
+		label.HorizontalAlignment = HorizontalAlignment.Center;
+		return label;
+	}
+
+	private static PanelContainer CreateSectionPanel()
+	{
+		var panel = new PanelContainer();
+		panel.AddThemeStyleboxOverride("panel", CreateSubPanelStyle());
+		panel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		return panel;
+	}
+
+	private static Button CreateSmallButton(string text, Godot.Vector2? minSize = null)
+	{
+		var btn = new Button();
+		btn.Text = text;
+		btn.CustomMinimumSize = minSize ?? new Godot.Vector2(80, 28);
+		return btn;
+	}
 
 	public override void _Ready()
 	{
@@ -42,7 +117,7 @@ public partial class GameMenu : CanvasLayer
 		_isOpen = false;
 
 		_panel = new PanelContainer();
-		_panel.AnchorsPreset = (int)Control.LayoutPreset.Center;
+		_panel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
 		_panel.AnchorLeft = 0.1f;
 		_panel.AnchorRight = 0.9f;
 		_panel.AnchorTop = 0.1f;
@@ -58,6 +133,7 @@ public partial class GameMenu : CanvasLayer
 		var mainVBox = new VBoxContainer();
 		mainVBox.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
 		mainVBox.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		mainVBox.AddThemeConstantOverride("separation", 12);
 		_panel.AddChild(mainVBox);
 
 		_tabBar = new TabBar();
@@ -68,28 +144,41 @@ public partial class GameMenu : CanvasLayer
 
 		var tabContent = new MarginContainer();
 		tabContent.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		tabContent.AddThemeConstantOverride("margin_left", 16);
-		tabContent.AddThemeConstantOverride("margin_right", 16);
-		tabContent.AddThemeConstantOverride("margin_top", 16);
-		tabContent.AddThemeConstantOverride("margin_bottom", 16);
+		tabContent.AddThemeConstantOverride("margin_left", 8);
+		tabContent.AddThemeConstantOverride("margin_right", 8);
+		tabContent.AddThemeConstantOverride("margin_top", 8);
+		tabContent.AddThemeConstantOverride("margin_bottom", 8);
 		mainVBox.AddChild(tabContent);
 
 		_generalTab = new VBoxContainer();
-		var notYetLabel = new Label();
-		notYetLabel.Text = "Not yet implemented";
-		notYetLabel.HorizontalAlignment = HorizontalAlignment.Center;
-		notYetLabel.VerticalAlignment = VerticalAlignment.Center;
-		notYetLabel.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		_generalTab.AddChild(notYetLabel);
+		_generalTab.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_generalTab.AddThemeConstantOverride("separation", 10);
+		BuildProfileUI();
 		tabContent.AddChild(_generalTab);
 
 		_socialTab = new VBoxContainer();
 		_socialTab.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_socialTab.AddThemeConstantOverride("separation", 10);
 		_socialTab.Visible = false;
 		tabContent.AddChild(_socialTab);
 
 		BuildNoGuildUI();
 		BuildInGuildUI();
+
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		conn.Db.GuildResourceTracker.OnInsert += OnGuildResourceTrackerInsert;
+		conn.Db.GuildResourceTracker.OnUpdate += OnGuildResourceTrackerUpdate;
+		conn.Db.GuildMember.OnInsert += OnGuildMemberInsert;
+		conn.Db.GuildMember.OnUpdate += OnGuildMemberUpdate;
+		conn.Db.GuildMember.OnDelete += OnGuildMemberDelete;
+		conn.Db.GuildInvite.OnInsert += OnGuildInviteInsert;
+		conn.Db.GuildInvite.OnDelete += OnGuildInviteDelete;
+		conn.Db.Guild.OnInsert += OnGuildInsert;
+		conn.Db.Guild.OnUpdate += OnGuildUpdate;
+		conn.Db.Guild.OnDelete += OnGuildDelete;
+		conn.Db.Player.OnUpdate += OnPlayerUpdate;
+		conn.Db.GuildJoinRequest.OnInsert += OnGuildJoinRequestInsert;
+		conn.Db.GuildJoinRequest.OnDelete += OnGuildJoinRequestDelete;
 
 		RefreshSocialTab();
 	}
@@ -141,16 +230,81 @@ public partial class GameMenu : CanvasLayer
 			RefreshSocialTab();
 	}
 
+	// ── Profile UI (General Tab) ────────────────────────────────
+
+	private void BuildProfileUI()
+	{
+		var profilePanel = CreateSectionPanel();
+		var profileVBox = new VBoxContainer();
+		profileVBox.AddThemeConstantOverride("separation", 8);
+		profileVBox.AddChild(CreateSectionHeader("Profile"));
+		profileVBox.AddChild(new HSeparator());
+
+		var currentRow = new HBoxContainer();
+		currentRow.AddThemeConstantOverride("separation", 8);
+		var currentLabel = new Label();
+		currentLabel.Text = "Display Name:";
+		currentRow.AddChild(currentLabel);
+		_currentNameLabel = new Label();
+		_currentNameLabel.AddThemeColorOverride("font_color", GoldAccent);
+		_currentNameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		currentRow.AddChild(_currentNameLabel);
+		profileVBox.AddChild(currentRow);
+
+		var editRow = new HBoxContainer();
+		_nameInput = new LineEdit();
+		_nameInput.PlaceholderText = "Enter new name...";
+		_nameInput.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		editRow.AddChild(_nameInput);
+
+		_saveNameButton = new Button();
+		_saveNameButton.Text = "Save";
+		_saveNameButton.CustomMinimumSize = new Godot.Vector2(140, 36);
+		_saveNameButton.Pressed += OnSaveNamePressed;
+		editRow.AddChild(_saveNameButton);
+		profileVBox.AddChild(editRow);
+
+		profilePanel.AddChild(profileVBox);
+		_generalTab.AddChild(profilePanel);
+
+		RefreshProfileUI();
+	}
+
+	private void RefreshProfileUI()
+	{
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+		var player = conn.Db.Player.Identity.Find(localId);
+		_currentNameLabel.Text = player?.DisplayName ?? "Unknown";
+	}
+
+	private void OnSaveNamePressed()
+	{
+		var newName = _nameInput.Text.Trim();
+		if (string.IsNullOrEmpty(newName)) return;
+
+		SpacetimeNetworkManager.Instance.Conn.Reducers.SetName(newName);
+		_nameInput.Text = "";
+	}
+
+	// ── No-Guild UI ─────────────────────────────────────────────
+
 	private void BuildNoGuildUI()
 	{
-		_noGuildContainer = new VBoxContainer();
+		_noGuildContainer = new ScrollContainer();
 		_noGuildContainer.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_noGuildContainer.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
 
-		var createHeader = new Label();
-		createHeader.Text = "Create a Guild";
-		createHeader.AddThemeFontSizeOverride("font_size", 28);
-		createHeader.HorizontalAlignment = HorizontalAlignment.Center;
-		_noGuildContainer.AddChild(createHeader);
+		var noGuildVBox = new VBoxContainer();
+		noGuildVBox.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		noGuildVBox.AddThemeConstantOverride("separation", 10);
+
+		// Create guild section
+		var createPanel = CreateSectionPanel();
+		var createVBox = new VBoxContainer();
+		createVBox.AddThemeConstantOverride("separation", 8);
+		createVBox.AddChild(CreateSectionHeader("Create a Guild"));
+		createVBox.AddChild(new HSeparator());
 
 		var createRow = new HBoxContainer();
 		_guildNameInput = new LineEdit();
@@ -160,118 +314,198 @@ public partial class GameMenu : CanvasLayer
 
 		_createGuildButton = new Button();
 		_createGuildButton.Text = "Create";
+		_createGuildButton.CustomMinimumSize = new Godot.Vector2(140, 36);
 		_createGuildButton.Pressed += OnCreateGuildPressed;
 		createRow.AddChild(_createGuildButton);
-		_noGuildContainer.AddChild(createRow);
+		createVBox.AddChild(createRow);
+		createPanel.AddChild(createVBox);
+		noGuildVBox.AddChild(createPanel);
 
-		_noGuildContainer.AddChild(new HSeparator());
+		// Guild search section
+		var searchPanel = CreateSectionPanel();
+		var searchVBox = new VBoxContainer();
+		searchVBox.AddThemeConstantOverride("separation", 6);
+		searchVBox.AddChild(CreateSectionHeader("Find a Guild"));
+		searchVBox.AddChild(new HSeparator());
 
-		var invitesHeader = new Label();
-		invitesHeader.Text = "Pending Invites";
-		invitesHeader.AddThemeFontSizeOverride("font_size", 24);
-		invitesHeader.HorizontalAlignment = HorizontalAlignment.Center;
-		_noGuildContainer.AddChild(invitesHeader);
+		var searchRow = new HBoxContainer();
+		_guildSearchInput = new LineEdit();
+		_guildSearchInput.PlaceholderText = "Search guilds by name...";
+		_guildSearchInput.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_guildSearchInput.TextChanged += OnGuildSearchTextChanged;
+		searchRow.AddChild(_guildSearchInput);
 
-		var invitesScroll = new ScrollContainer();
-		invitesScroll.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		var searchButton = new Button();
+		searchButton.Text = "Search";
+		searchButton.CustomMinimumSize = new Godot.Vector2(140, 36);
+		searchButton.Pressed += () => RefreshGuildSearch();
+		searchRow.AddChild(searchButton);
+		searchVBox.AddChild(searchRow);
+
+		// Pending request indicator
+		_pendingRequestPanel = CreateSectionPanel();
+		var pendingRow = new HBoxContainer();
+		pendingRow.AddThemeConstantOverride("separation", 8);
+		_pendingRequestLabel = new Label();
+		_pendingRequestLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_pendingRequestLabel.AddThemeColorOverride("font_color", GoldAccent);
+		pendingRow.AddChild(_pendingRequestLabel);
+		_cancelRequestButton = new Button();
+		_cancelRequestButton.Text = "Cancel";
+		_cancelRequestButton.CustomMinimumSize = new Godot.Vector2(80, 28);
+		_cancelRequestButton.Pressed += OnCancelJoinRequestPressed;
+		pendingRow.AddChild(_cancelRequestButton);
+		_pendingRequestPanel.AddChild(pendingRow);
+		_pendingRequestPanel.Visible = false;
+		searchVBox.AddChild(_pendingRequestPanel);
+
+		_guildSearchList = new VBoxContainer();
+		_guildSearchList.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_guildSearchList.AddThemeConstantOverride("separation", 4);
+		searchVBox.AddChild(_guildSearchList);
+		searchPanel.AddChild(searchVBox);
+		noGuildVBox.AddChild(searchPanel);
+
+		// Invites section
+		var invitesPanel = CreateSectionPanel();
+		var invitesVBox = new VBoxContainer();
+		invitesVBox.AddThemeConstantOverride("separation", 6);
+		invitesVBox.AddChild(CreateSectionHeader("Pending Invites"));
+		invitesVBox.AddChild(new HSeparator());
+
 		_invitesList = new VBoxContainer();
 		_invitesList.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		invitesScroll.AddChild(_invitesList);
-		_noGuildContainer.AddChild(invitesScroll);
+		_invitesList.AddThemeConstantOverride("separation", 6);
+		invitesVBox.AddChild(_invitesList);
+		invitesPanel.AddChild(invitesVBox);
+		noGuildVBox.AddChild(invitesPanel);
 
+		_noGuildContainer.AddChild(noGuildVBox);
 		_socialTab.AddChild(_noGuildContainer);
 	}
+
+	// ── In-Guild UI ─────────────────────────────────────────────
 
 	private void BuildInGuildUI()
 	{
 		_inGuildContainer = new VBoxContainer();
 		_inGuildContainer.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_inGuildContainer.AddThemeConstantOverride("separation", 10);
 
 		_guildNameLabel = new Label();
-		_guildNameLabel.AddThemeFontSizeOverride("font_size", 32);
+		_guildNameLabel.AddThemeFontSizeOverride("font_size", 28);
 		_guildNameLabel.HorizontalAlignment = HorizontalAlignment.Center;
+		_guildNameLabel.AddThemeColorOverride("font_color", GoldAccent);
 		_inGuildContainer.AddChild(_guildNameLabel);
 
-		_inGuildContainer.AddChild(new HSeparator());
-
 		// Session buttons
+		var sessionPanel = CreateSectionPanel();
 		var sessionRow = new HBoxContainer();
 		sessionRow.Alignment = BoxContainer.AlignmentMode.Center;
+		sessionRow.AddThemeConstantOverride("separation", 12);
 		_enterSessionButton = new Button();
 		_enterSessionButton.Text = "Enter Guild Hall";
+		_enterSessionButton.CustomMinimumSize = new Godot.Vector2(140, 36);
 		_enterSessionButton.Pressed += OnEnterSessionPressed;
 		sessionRow.AddChild(_enterSessionButton);
 
 		_leaveSessionButton = new Button();
 		_leaveSessionButton.Text = "Leave Guild Hall";
+		_leaveSessionButton.CustomMinimumSize = new Godot.Vector2(140, 36);
 		_leaveSessionButton.Pressed += OnLeaveSessionPressed;
 		sessionRow.AddChild(_leaveSessionButton);
-		_inGuildContainer.AddChild(sessionRow);
+		sessionPanel.AddChild(sessionRow);
+		_inGuildContainer.AddChild(sessionPanel);
 
-		_inGuildContainer.AddChild(new HSeparator());
-
-		// Members
-		var membersHeader = new Label();
-		membersHeader.Text = "Members";
-		membersHeader.AddThemeFontSizeOverride("font_size", 24);
-		membersHeader.HorizontalAlignment = HorizontalAlignment.Center;
-		_inGuildContainer.AddChild(membersHeader);
+		// Members section
+		var membersPanel = CreateSectionPanel();
+		var membersVBox = new VBoxContainer();
+		membersVBox.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		membersVBox.AddThemeConstantOverride("separation", 6);
+		membersVBox.AddChild(CreateSectionHeader("Members"));
+		membersVBox.AddChild(new HSeparator());
 
 		var membersScroll = new ScrollContainer();
 		membersScroll.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		membersScroll.CustomMinimumSize = new Godot.Vector2(0, 120);
+		membersScroll.CustomMinimumSize = new Godot.Vector2(0, 100);
 		_membersList = new VBoxContainer();
 		_membersList.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_membersList.AddThemeConstantOverride("separation", 4);
 		membersScroll.AddChild(_membersList);
-		_inGuildContainer.AddChild(membersScroll);
+		membersVBox.AddChild(membersScroll);
 
-		// Invite row
-		var inviteRow = new HBoxContainer();
+		_inviteRow = new HBoxContainer();
 		_invitePlayerInput = new LineEdit();
 		_invitePlayerInput.PlaceholderText = "Player name to invite...";
 		_invitePlayerInput.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		inviteRow.AddChild(_invitePlayerInput);
+		_inviteRow.AddChild(_invitePlayerInput);
 		_inviteButton = new Button();
 		_inviteButton.Text = "Invite";
+		_inviteButton.CustomMinimumSize = new Godot.Vector2(140, 36);
 		_inviteButton.Pressed += OnInvitePressed;
-		inviteRow.AddChild(_inviteButton);
-		_inGuildContainer.AddChild(inviteRow);
+		_inviteRow.AddChild(_inviteButton);
+		membersVBox.AddChild(_inviteRow);
+		membersPanel.AddChild(membersVBox);
+		_inGuildContainer.AddChild(membersPanel);
 
-		_inGuildContainer.AddChild(new HSeparator());
+		// Admin panel (join requests)
+		_adminPanelContainer = CreateSectionPanel();
+		var adminVBox = new VBoxContainer();
+		adminVBox.AddThemeConstantOverride("separation", 6);
+		adminVBox.AddChild(CreateSectionHeader("Join Requests"));
+		adminVBox.AddChild(new HSeparator());
 
-		// Guild resources
-		var resourcesHeader = new Label();
-		resourcesHeader.Text = "Guild Treasury";
-		resourcesHeader.AddThemeFontSizeOverride("font_size", 24);
-		resourcesHeader.HorizontalAlignment = HorizontalAlignment.Center;
-		_inGuildContainer.AddChild(resourcesHeader);
+		var requestsScroll = new ScrollContainer();
+		requestsScroll.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		requestsScroll.CustomMinimumSize = new Godot.Vector2(0, 60);
+		_joinRequestsList = new VBoxContainer();
+		_joinRequestsList.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_joinRequestsList.AddThemeConstantOverride("separation", 4);
+		requestsScroll.AddChild(_joinRequestsList);
+		adminVBox.AddChild(requestsScroll);
+		_adminPanelContainer.AddChild(adminVBox);
+		_inGuildContainer.AddChild(_adminPanelContainer);
+
+		// Treasury
+		var treasuryPanel = CreateSectionPanel();
+		var treasuryVBox = new VBoxContainer();
+		treasuryVBox.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		treasuryVBox.AddThemeConstantOverride("separation", 6);
+		treasuryVBox.AddChild(CreateSectionHeader("Guild Treasury"));
+		treasuryVBox.AddChild(new HSeparator());
 
 		var resourcesScroll = new ScrollContainer();
 		resourcesScroll.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		resourcesScroll.CustomMinimumSize = new Godot.Vector2(0, 80);
+		resourcesScroll.CustomMinimumSize = new Godot.Vector2(0, 60);
 		_guildResourcesList = new VBoxContainer();
 		_guildResourcesList.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_guildResourcesList.AddThemeConstantOverride("separation", 4);
 		resourcesScroll.AddChild(_guildResourcesList);
-		_inGuildContainer.AddChild(resourcesScroll);
+		treasuryVBox.AddChild(resourcesScroll);
+		treasuryPanel.AddChild(treasuryVBox);
+		_inGuildContainer.AddChild(treasuryPanel);
 
-		_inGuildContainer.AddChild(new HSeparator());
-
-		// Action buttons
+		// Actions row
 		var actionsRow = new HBoxContainer();
 		actionsRow.Alignment = BoxContainer.AlignmentMode.Center;
+		actionsRow.AddThemeConstantOverride("separation", 12);
 		_leaveGuildButton = new Button();
 		_leaveGuildButton.Text = "Leave Guild";
+		_leaveGuildButton.CustomMinimumSize = new Godot.Vector2(140, 36);
 		_leaveGuildButton.Pressed += OnLeaveGuildPressed;
 		actionsRow.AddChild(_leaveGuildButton);
 
 		_disbandGuildButton = new Button();
 		_disbandGuildButton.Text = "Disband Guild";
+		_disbandGuildButton.CustomMinimumSize = new Godot.Vector2(140, 36);
 		_disbandGuildButton.Pressed += OnDisbandGuildPressed;
 		actionsRow.AddChild(_disbandGuildButton);
 		_inGuildContainer.AddChild(actionsRow);
 
 		_socialTab.AddChild(_inGuildContainer);
 	}
+
+	// ── Refresh Logic ───────────────────────────────────────────
 
 	private void RefreshSocialTab()
 	{
@@ -284,13 +518,103 @@ public partial class GameMenu : CanvasLayer
 		{
 			_noGuildContainer.Visible = true;
 			_inGuildContainer.Visible = false;
-			RefreshInvites();
+			RefreshNoGuildView();
 		}
 		else
 		{
 			_noGuildContainer.Visible = false;
 			_inGuildContainer.Visible = true;
 			RefreshGuildView(membership);
+		}
+	}
+
+	private void RefreshNoGuildView()
+	{
+		RefreshInvites();
+		RefreshGuildSearch();
+		RefreshPendingRequest();
+	}
+
+	private void RefreshPendingRequest()
+	{
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+		var pending = conn.Db.GuildJoinRequest.RequesterId.Find(localId);
+
+		if (pending is not null)
+		{
+			var guild = conn.Db.Guild.Id.Find(pending.GuildId);
+			_pendingRequestLabel.Text = $"Request pending: {guild?.Name ?? "Unknown Guild"}";
+			_pendingRequestPanel.Visible = true;
+		}
+		else
+		{
+			_pendingRequestPanel.Visible = false;
+		}
+	}
+
+	private void RefreshGuildSearch()
+	{
+		foreach (var child in _guildSearchList.GetChildren())
+			child.QueueFree();
+
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+		var searchText = _guildSearchInput?.Text?.Trim() ?? "";
+
+		var pendingRequest = conn.Db.GuildJoinRequest.RequesterId.Find(localId);
+		bool hasPending = pendingRequest is not null;
+
+		var guilds = conn.Db.Guild.Iter()
+			.Where(g => searchText.Length == 0 || g.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+			.Take(20);
+
+		foreach (var guild in guilds)
+		{
+			var memberCount = conn.Db.GuildMember.GuildId.Filter(guild.Id).Count();
+
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+
+			var nameLabel = new Label();
+			nameLabel.Text = guild.Name;
+			nameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+			row.AddChild(nameLabel);
+
+			var countLabel = new Label();
+			countLabel.Text = $"{memberCount} member{(memberCount != 1 ? "s" : "")}";
+			countLabel.AddThemeColorOverride("font_color", MutedGray);
+			row.AddChild(countLabel);
+
+			if (hasPending && pendingRequest!.GuildId == guild.Id)
+			{
+				var pendingLabel = new Label();
+				pendingLabel.Text = "Requested";
+				pendingLabel.AddThemeColorOverride("font_color", GoldAccent);
+				row.AddChild(pendingLabel);
+			}
+			else if (!hasPending)
+			{
+				var requestBtn = CreateSmallButton("Request to Join");
+				var capturedGuildId = guild.Id;
+				requestBtn.Pressed += () =>
+				{
+					conn.Reducers.RequestJoinGuild(capturedGuildId);
+					CallDeferred(nameof(DeferredRefreshSocial));
+				};
+				row.AddChild(requestBtn);
+			}
+
+			_guildSearchList.AddChild(row);
+		}
+
+		if (_guildSearchList.GetChildCount() == 0)
+		{
+			var noResults = new Label();
+			noResults.Text = searchText.Length > 0 ? "No guilds found" : "No guilds exist yet";
+			noResults.HorizontalAlignment = HorizontalAlignment.Center;
+			noResults.AddThemeColorOverride("font_color", MutedGray);
+			_guildSearchList.AddChild(noResults);
 		}
 	}
 
@@ -318,6 +642,7 @@ public partial class GameMenu : CanvasLayer
 
 			var acceptBtn = new Button();
 			acceptBtn.Text = "Join";
+			acceptBtn.CustomMinimumSize = new Godot.Vector2(80, 32);
 			var capturedInviteId = invite.Id;
 			acceptBtn.Pressed += () =>
 			{
@@ -333,7 +658,7 @@ public partial class GameMenu : CanvasLayer
 			var noInvites = new Label();
 			noInvites.Text = "No pending invites";
 			noInvites.HorizontalAlignment = HorizontalAlignment.Center;
-			noInvites.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
+			noInvites.AddThemeColorOverride("font_color", MutedGray);
 			_invitesList.AddChild(noInvites);
 		}
 	}
@@ -346,26 +671,55 @@ public partial class GameMenu : CanvasLayer
 		var guild = conn.Db.Guild.Id.Find(membership.GuildId);
 		_guildNameLabel.Text = guild?.Name ?? "Unknown Guild";
 
-		bool isFounder = guild?.FounderId == localId;
-		_disbandGuildButton.Visible = isFounder;
+		bool isOwner = membership.Role == GuildRole.Owner;
+		bool isOfficerOrAbove = membership.Role == GuildRole.Officer || isOwner;
+
+		_disbandGuildButton.Visible = isOwner;
+		_leaveGuildButton.Visible = !isOwner;
+		_inviteRow.Visible = isOfficerOrAbove;
+		_adminPanelContainer.Visible = isOfficerOrAbove;
 
 		_enterSessionButton.Visible = !membership.InSession;
 		_leaveSessionButton.Visible = membership.InSession;
 
-		// Members list
+		RefreshMembersList(membership, isOfficerOrAbove);
+		RefreshJoinRequests(membership, isOfficerOrAbove);
+		RefreshTreasury(membership);
+	}
+
+	private void RefreshMembersList(GuildMember localMembership, bool isOfficerOrAbove)
+	{
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+
 		foreach (var child in _membersList.GetChildren())
 			child.QueueFree();
 
-		foreach (var member in conn.Db.GuildMember.GuildId.Filter(membership.GuildId))
+		foreach (var member in conn.Db.GuildMember.GuildId.Filter(localMembership.GuildId))
 		{
 			var player = conn.Db.Player.Identity.Find(member.PlayerId);
 			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 6);
 
 			var nameLabel = new Label();
 			nameLabel.Text = player?.DisplayName ?? "Unknown";
 			nameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
 			row.AddChild(nameLabel);
 
+			// Role badge
+			if (member.Role != GuildRole.Member)
+			{
+				var roleLabel = new Label();
+				roleLabel.Text = member.Role.ToString();
+				roleLabel.AddThemeFontSizeOverride("font_size", 12);
+				if (member.Role == GuildRole.Owner)
+					roleLabel.AddThemeColorOverride("font_color", GoldAccent);
+				else
+					roleLabel.AddThemeColorOverride("font_color", OfficerBlue);
+				row.AddChild(roleLabel);
+			}
+
+			// Online status
 			var statusLabel = new Label();
 			if (player?.Online == true)
 			{
@@ -378,10 +732,101 @@ public partial class GameMenu : CanvasLayer
 				statusLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.5f, 0.5f));
 			}
 			row.AddChild(statusLabel);
+
+			// Management buttons (only for other members, and only if caller is officer+)
+			if (isOfficerOrAbove && member.PlayerId != localId && member.Role != GuildRole.Owner)
+			{
+				var capturedPlayerId = member.PlayerId;
+
+				if (member.Role == GuildRole.Member)
+				{
+					var promoteBtn = CreateSmallButton("Promote");
+					promoteBtn.Pressed += () =>
+					{
+						conn.Reducers.PromoteMember(capturedPlayerId);
+						CallDeferred(nameof(DeferredRefreshSocial));
+					};
+					row.AddChild(promoteBtn);
+				}
+				else if (member.Role == GuildRole.Officer)
+				{
+					var demoteBtn = CreateSmallButton("Demote");
+					demoteBtn.Pressed += () =>
+					{
+						conn.Reducers.DemoteMember(capturedPlayerId);
+						CallDeferred(nameof(DeferredRefreshSocial));
+					};
+					row.AddChild(demoteBtn);
+				}
+
+				var kickBtn = CreateSmallButton("Kick");
+				kickBtn.Pressed += () =>
+				{
+					conn.Reducers.KickMember(capturedPlayerId);
+					CallDeferred(nameof(DeferredRefreshSocial));
+				};
+				row.AddChild(kickBtn);
+			}
+
 			_membersList.AddChild(row);
 		}
+	}
 
-		// Guild resources
+	private void RefreshJoinRequests(GuildMember localMembership, bool isOfficerOrAbove)
+	{
+		foreach (var child in _joinRequestsList.GetChildren())
+			child.QueueFree();
+
+		if (!isOfficerOrAbove) return;
+
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+
+		foreach (var request in conn.Db.GuildJoinRequest.GuildId.Filter(localMembership.GuildId))
+		{
+			var requester = conn.Db.Player.Identity.Find(request.RequesterId);
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 6);
+
+			var nameLabel = new Label();
+			nameLabel.Text = requester?.DisplayName ?? "Unknown";
+			nameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+			row.AddChild(nameLabel);
+
+			var capturedRequestId = request.Id;
+
+			var acceptBtn = CreateSmallButton("Accept");
+			acceptBtn.Pressed += () =>
+			{
+				conn.Reducers.AcceptJoinRequest(capturedRequestId);
+				CallDeferred(nameof(DeferredRefreshSocial));
+			};
+			row.AddChild(acceptBtn);
+
+			var rejectBtn = CreateSmallButton("Reject");
+			rejectBtn.Pressed += () =>
+			{
+				conn.Reducers.RejectJoinRequest(capturedRequestId);
+				CallDeferred(nameof(DeferredRefreshSocial));
+			};
+			row.AddChild(rejectBtn);
+
+			_joinRequestsList.AddChild(row);
+		}
+
+		if (_joinRequestsList.GetChildCount() == 0)
+		{
+			var noRequests = new Label();
+			noRequests.Text = "No pending requests";
+			noRequests.HorizontalAlignment = HorizontalAlignment.Center;
+			noRequests.AddThemeColorOverride("font_color", MutedGray);
+			_joinRequestsList.AddChild(noRequests);
+		}
+	}
+
+	private void RefreshTreasury(GuildMember membership)
+	{
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+
 		foreach (var child in _guildResourcesList.GetChildren())
 			child.QueueFree();
 
@@ -395,6 +840,7 @@ public partial class GameMenu : CanvasLayer
 
 			var amountLabel = new Label();
 			amountLabel.Text = resource.Amount.ToString();
+			amountLabel.AddThemeColorOverride("font_color", GoldAccent);
 			row.AddChild(amountLabel);
 			_guildResourcesList.AddChild(row);
 		}
@@ -404,15 +850,146 @@ public partial class GameMenu : CanvasLayer
 			var noResources = new Label();
 			noResources.Text = "No guild resources yet";
 			noResources.HorizontalAlignment = HorizontalAlignment.Center;
-			noResources.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
+			noResources.AddThemeColorOverride("font_color", MutedGray);
 			_guildResourcesList.AddChild(noResources);
 		}
+	}
+
+	// ── Helpers ─────────────────────────────────────────────────
+
+	private ulong? GetLocalGuildId()
+	{
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+		return conn.Db.GuildMember.PlayerId.Find(localId)?.GuildId;
+	}
+
+	// ── Table Callbacks ─────────────────────────────────────────
+
+	private void OnGuildResourceTrackerInsert(EventContext ctx, GuildResourceTracker resource)
+	{
+		var guildId = GetLocalGuildId();
+		if (guildId is not null && resource.GuildId == guildId)
+			CallDeferred(nameof(DeferredRefreshSocial));
+	}
+
+	private void OnGuildResourceTrackerUpdate(EventContext ctx, GuildResourceTracker oldResource, GuildResourceTracker newResource)
+	{
+		var guildId = GetLocalGuildId();
+		if (guildId is not null && newResource.GuildId == guildId)
+			CallDeferred(nameof(DeferredRefreshSocial));
+	}
+
+	private void OnGuildMemberInsert(EventContext ctx, GuildMember member)
+	{
+		var guildId = GetLocalGuildId();
+		if (guildId is not null && member.GuildId == guildId)
+			CallDeferred(nameof(DeferredRefreshSocial));
+		else if (member.PlayerId == SpacetimeNetworkManager.Instance.LocalIdentity)
+			CallDeferred(nameof(DeferredRefreshSocial));
+	}
+
+	private void OnGuildMemberUpdate(EventContext ctx, GuildMember oldMember, GuildMember newMember)
+	{
+		var guildId = GetLocalGuildId();
+		if (guildId is not null && newMember.GuildId == guildId)
+			CallDeferred(nameof(DeferredRefreshSocial));
+	}
+
+	private void OnGuildMemberDelete(EventContext ctx, GuildMember member)
+	{
+		var guildId = GetLocalGuildId();
+		if (guildId is not null && member.GuildId == guildId)
+			CallDeferred(nameof(DeferredRefreshSocial));
+		else if (member.PlayerId == SpacetimeNetworkManager.Instance.LocalIdentity)
+			CallDeferred(nameof(DeferredRefreshSocial));
+	}
+
+	private void OnGuildInviteInsert(EventContext ctx, GuildInvite invite)
+	{
+		if (invite.InviteeId == SpacetimeNetworkManager.Instance.LocalIdentity)
+			CallDeferred(nameof(DeferredRefreshSocial));
+	}
+
+	private void OnGuildInviteDelete(EventContext ctx, GuildInvite invite)
+	{
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+		if (invite.InviteeId == localId)
+			CallDeferred(nameof(DeferredRefreshSocial));
+		var guildId = GetLocalGuildId();
+		if (guildId is not null && invite.GuildId == guildId)
+			CallDeferred(nameof(DeferredRefreshSocial));
+	}
+
+	private void OnGuildInsert(EventContext ctx, Guild guild)
+	{
+		if (GetLocalGuildId() is null)
+			CallDeferred(nameof(DeferredRefreshSocial));
+	}
+
+	private void OnGuildUpdate(EventContext ctx, Guild oldGuild, Guild newGuild)
+	{
+		var guildId = GetLocalGuildId();
+		if (guildId is not null && newGuild.Id == guildId)
+			CallDeferred(nameof(DeferredRefreshSocial));
+	}
+
+	private void OnGuildDelete(EventContext ctx, Guild guild)
+	{
+		CallDeferred(nameof(DeferredRefreshSocial));
+	}
+
+	private void OnPlayerUpdate(EventContext ctx, SpacetimeDB.Types.Player oldPlayer, SpacetimeDB.Types.Player newPlayer)
+	{
+		if (newPlayer.Identity == SpacetimeNetworkManager.Instance.LocalIdentity)
+			CallDeferred(nameof(DeferredRefreshProfile));
+
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var guildId = GetLocalGuildId();
+		if (guildId is null) return;
+
+		var memberEntry = conn.Db.GuildMember.PlayerId.Find(newPlayer.Identity);
+		if (memberEntry is not null && memberEntry.GuildId == guildId)
+			CallDeferred(nameof(DeferredRefreshSocial));
+	}
+
+	private void OnGuildJoinRequestInsert(EventContext ctx, GuildJoinRequest request)
+	{
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+		if (request.RequesterId == localId)
+		{
+			CallDeferred(nameof(DeferredRefreshSocial));
+			return;
+		}
+		var guildId = GetLocalGuildId();
+		if (guildId is not null && request.GuildId == guildId)
+			CallDeferred(nameof(DeferredRefreshSocial));
+	}
+
+	private void OnGuildJoinRequestDelete(EventContext ctx, GuildJoinRequest request)
+	{
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+		if (request.RequesterId == localId)
+		{
+			CallDeferred(nameof(DeferredRefreshSocial));
+			return;
+		}
+		var guildId = GetLocalGuildId();
+		if (guildId is not null && request.GuildId == guildId)
+			CallDeferred(nameof(DeferredRefreshSocial));
 	}
 
 	private void DeferredRefreshSocial()
 	{
 		RefreshSocialTab();
 	}
+
+	private void DeferredRefreshProfile()
+	{
+		RefreshProfileUI();
+	}
+
+	// ── Button Handlers ─────────────────────────────────────────
 
 	private void OnCreateGuildPressed()
 	{
@@ -421,6 +998,17 @@ public partial class GameMenu : CanvasLayer
 
 		SpacetimeNetworkManager.Instance.Conn.Reducers.CreateGuild(name);
 		_guildNameInput.Text = "";
+		CallDeferred(nameof(DeferredRefreshSocial));
+	}
+
+	private void OnGuildSearchTextChanged(string newText)
+	{
+		RefreshGuildSearch();
+	}
+
+	private void OnCancelJoinRequestPressed()
+	{
+		SpacetimeNetworkManager.Instance.Conn.Reducers.CancelJoinRequest();
 		CallDeferred(nameof(DeferredRefreshSocial));
 	}
 

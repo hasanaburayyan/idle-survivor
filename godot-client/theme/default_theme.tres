@@ -1,5 +1,9 @@
 [gd_resource type="Theme" format=3]
 
+[sub_resource type="StyleBoxLine" id="StyleBoxLine_sep"]
+color = Color(0.3, 0.3, 0.35, 1.0)
+thickness = 1
+
 [resource]
 default_font_size = 24
 
@@ -15,3 +19,6 @@ MarginContainer/constants/margin_left = 20
 MarginContainer/constants/margin_right = 20
 MarginContainer/constants/margin_top = 20
 MarginContainer/constants/margin_bottom = 20
+
+HSeparator/constants/separation = 8
+HSeparator/styles/separator = SubResource("StyleBoxLine_sep")

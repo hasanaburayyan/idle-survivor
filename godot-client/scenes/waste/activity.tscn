@@ -2,9 +2,23 @@
 
 [ext_resource type="Script" uid="uid://tlm5n7xyjwly" path="res://scenes/waste/Activity.cs" id="1_8g3p5"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pgfill"]
+bg_color = Color(0.3, 0.75, 0.35, 1.0)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_left = 3
+corner_radius_bottom_right = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pgbg"]
+bg_color = Color(0.15, 0.15, 0.18, 1.0)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_left = 3
+corner_radius_bottom_right = 3
+
 [node name="Activity" type="VBoxContainer" unique_id=1767672958]
 script = ExtResource("1_8g3p5")
-theme_override_constants/separation = 6
+theme_override_constants/separation = 4
 
 [node name="InfoRow" type="HBoxContainer" parent="."]
 layout_mode = 2
@@ -13,16 +27,22 @@ theme_override_constants/separation = 12
 [node name="ActivateButton" type="Button" parent="InfoRow" unique_id=1223180176]
 unique_name_in_owner = true
 layout_mode = 2
+custom_minimum_size = Vector2(120, 0)
 text = "Scavenge"
 
 [node name="CostLabel" type="Label" parent="InfoRow" unique_id=700864001]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.6, 0.6, 0.65, 1.0)
 text = "Cost: 60 Food"
 
 [node name="DurationLabel" type="Label" parent="InfoRow"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.6, 0.6, 0.65, 1.0)
 text = "0.5s"
 
 [node name="ProgressBar" type="ProgressBar" parent="."]
@@ -33,4 +53,6 @@ min_value = 0.0
 max_value = 100.0
 value = 0.0
 show_percentage = false
-custom_minimum_size = Vector2(0, 16)
+custom_minimum_size = Vector2(0, 12)
+theme_override_styles/fill = SubResource("StyleBoxFlat_pgfill")
+theme_override_styles/background = SubResource("StyleBoxFlat_pgbg")

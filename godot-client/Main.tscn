@@ -3,6 +3,17 @@
 [ext_resource type="Script" uid="uid://cd3qcwhg8d2ef" path="res://Main.cs" id="1_glv2v"]
 [ext_resource type="Theme" path="res://theme/default_theme.tres" id="2_theme"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_menupanel"]
+bg_color = Color(0.12, 0.12, 0.15, 0.9)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_left = 8
+corner_radius_bottom_right = 8
+content_margin_left = 32.0
+content_margin_top = 28.0
+content_margin_right = 32.0
+content_margin_bottom = 28.0
+
 [node name="Main" type="Node2D" unique_id=1651756053]
 script = ExtResource("1_glv2v")
 
@@ -16,42 +27,50 @@ grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("2_theme")
 
-[node name="MenuPanel" type="VBoxContainer" parent="CanvasLayer/CenterContainer"]
+[node name="PanelWrapper" type="PanelContainer" parent="CanvasLayer/CenterContainer"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_styles/panel = SubResource("StyleBoxFlat_menupanel")
 
-[node name="TitleLabel" type="Label" parent="CanvasLayer/CenterContainer/MenuPanel"]
+[node name="MenuPanel" type="VBoxContainer" parent="CanvasLayer/CenterContainer/PanelWrapper"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 36
+theme_override_constants/separation = 20
+
+[node name="TitleLabel" type="Label" parent="CanvasLayer/CenterContainer/PanelWrapper/MenuPanel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+theme_override_colors/font_color = Color(0.9, 0.85, 0.4, 1.0)
 text = "Idle Survivor"
 horizontal_alignment = 1
 
-[node name="IdentityPrompt" type="VBoxContainer" parent="CanvasLayer/CenterContainer/MenuPanel"]
+[node name="TitleSep" type="HSeparator" parent="CanvasLayer/CenterContainer/PanelWrapper/MenuPanel"]
+layout_mode = 2
+
+[node name="IdentityPrompt" type="VBoxContainer" parent="CanvasLayer/CenterContainer/PanelWrapper/MenuPanel"]
 unique_name_in_owner = true
 layout_mode = 2
 visible = false
 theme_override_constants/separation = 12
 
-[node name="PromptLabel" type="Label" parent="CanvasLayer/CenterContainer/MenuPanel/IdentityPrompt"]
+[node name="PromptLabel" type="Label" parent="CanvasLayer/CenterContainer/PanelWrapper/MenuPanel/IdentityPrompt"]
 layout_mode = 2
 text = "Saved identity found. Use it?"
 horizontal_alignment = 1
 
-[node name="UseSavedButton" type="Button" parent="CanvasLayer/CenterContainer/MenuPanel/IdentityPrompt" unique_id=200000002]
+[node name="UseSavedButton" type="Button" parent="CanvasLayer/CenterContainer/PanelWrapper/MenuPanel/IdentityPrompt" unique_id=200000002]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(250, 40)
+custom_minimum_size = Vector2(280, 44)
 text = "Use Saved"
 
-[node name="NewIdentityButton" type="Button" parent="CanvasLayer/CenterContainer/MenuPanel/IdentityPrompt" unique_id=200000003]
+[node name="NewIdentityButton" type="Button" parent="CanvasLayer/CenterContainer/PanelWrapper/MenuPanel/IdentityPrompt" unique_id=200000003]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(250, 40)
+custom_minimum_size = Vector2(280, 44)
 text = "New Identity"
 
-[node name="StartButton" type="Button" parent="CanvasLayer/CenterContainer/MenuPanel" unique_id=741327891]
+[node name="StartButton" type="Button" parent="CanvasLayer/CenterContainer/PanelWrapper/MenuPanel" unique_id=741327891]
 unique_name_in_owner = true
 layout_mode = 2
 visible = false
-custom_minimum_size = Vector2(250, 50)
+custom_minimum_size = Vector2(280, 44)
 text = "Start"

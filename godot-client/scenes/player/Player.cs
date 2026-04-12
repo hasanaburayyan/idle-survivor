@@ -109,6 +109,13 @@ public partial class Player : CharacterBody2D
 
 		Position += new Vector2(_direction * MoveSpeed * (float)delta, 0);
 
+		float topBound = viewport.Size.Y * 0.55f;
+		float bottomBound = viewport.Size.Y - FrameHeight * 0.5f;
+		Position = new Vector2(
+			Position.X,
+			Math.Clamp(Position.Y, topBound, bottomBound)
+		);
+
 		if (Position.X >= rightBound)
 		{
 			Position = new Vector2(rightBound, Position.Y);
