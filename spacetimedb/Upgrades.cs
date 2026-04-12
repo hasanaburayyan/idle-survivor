@@ -48,7 +48,20 @@ public static partial class Module {
                     Participant = owner,
                     Type = ActivityType.Study,
                     Cost = new List<ActivityCost>(),
-                    DurationMs = 30000
+                    DurationMs = GetEffectiveDurationMs(30000, value)
+                });
+            }
+        }
+
+        if (stat == StatType.Perception && value >= 5) {
+            var doesPlayerHaveFocusAlready = ctx.Db.Activity.by_activity_participant_type.Filter((Participant: owner, Type: ActivityType.Focus)).Any();
+            
+            if (!doesPlayerHaveFocusAlready) {
+                ctx.Db.Activity.Insert(new Activity {
+                    Participant =  owner,
+                    Type = ActivityType.Focus,
+                    Cost = new List<ActivityCost>(),
+                    DurationMs = GetEffectiveDurationMs(10_000, value)
                 });
             }
         }

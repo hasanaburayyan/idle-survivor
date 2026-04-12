@@ -22,6 +22,11 @@ public static partial class Module
         player.Online = false;
         ctx.Db.Player.Identity.Update(player);
 
+        if (ctx.Db.GuildMember.PlayerId.Find(ctx.Sender) is GuildMember member && member.InSession)
+        {
+            ctx.Db.GuildMember.Id.Update(member with { InSession = false });
+        }
+
         RemoveAllScheduledEventsForParticipant(ctx, ctx.Sender);
     }
 }

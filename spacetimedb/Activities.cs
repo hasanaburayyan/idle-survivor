@@ -6,7 +6,8 @@ public enum ActivityType : byte
     Scavenge,
     LootBigWood,
     CarbLoad,
-    Study
+    Study,
+    Focus,
 }
 
 [SpacetimeDB.Type]
@@ -84,6 +85,9 @@ public static partial class Module
             case ActivityType.Study:
                 Study(ctx, arg.Participant);
                 break;
+            case ActivityType.Focus:
+                Focus(ctx, arg.Participant);
+                break;
             default:
                 throw new Exception("Unknown activity type");
         }
@@ -130,11 +134,28 @@ public static partial class Module
                 break;
         }
         AddResourceToPlayer(ctx, participant, resourceType, amount);
+
+        if (ctx.Db.GuildMember.PlayerId.Find(participant) is GuildMember scavengerMember
+            && scavengerMember.InSession)
+        {
+            foreach (var member in ctx.Db.GuildMember.GuildId.Filter(scavengerMember.GuildId))
+            {
+                if (member.PlayerId == participant) continue;
+                if (!member.InSession) continue;
+                AddResourceToPlayer(ctx, member.PlayerId, resourceType, amount);
+            }
+        }
     }
 
     [SpacetimeDB.Reducer]
     public static void LootBigWood(ReducerContext ctx, Identity participant) {
         AddResourceToPlayer(ctx, participant, ResourceType.Food, 100);
+    }
+
+    [SpacetimeDB.Reducer]
+    public static void Focus(ReducerContext ctx, Identity participant) {
+        var currentPerception = GetStat(ctx, participant, StatType.Perception);
+        SetStat(ctx, participant, StatType.Perception, currentPerception + 2);
     }
 
     private static void CarbLoad(ReducerContext ctx, Identity participant) {
@@ -238,6 +259,20 @@ public static partial class Module
             GetStat(ctx, participant, StatType.Intelligence) + 3);
     }
 
+    private static ulong GetEffectiveDurationMs(ulong baseDurationMs, int statValue)
+    {
+        var effective = baseDurationMs / (1.0 + statValue * 0.1);
+        return Math.Max(250, (ulong)effective);
+    }
+
+    private static void UpdateActivityDuration(ReducerContext ctx, Identity participant, ActivityType type, StatType stat)
+    {
+        var activity = ctx.Db.Activity.by_activity_participant_type
+            .Filter((Participant: participant, Type: type)).First();
+        activity.DurationMs = GetEffectiveDurationMs(activity.DurationMs, GetStat(ctx, participant, stat));
+        ctx.Db.Activity.Id.Update(activity);
+    }
+
     [SpacetimeDB.Reducer]
     public static void StartActivity(ReducerContext ctx, ActivityType type) {
         if (ctx.Db.ActiveTask.Participant.Find(ctx.Sender) is ActiveTask) {
@@ -262,7 +297,13 @@ public static partial class Module
             ctx.Db.ResourceTracker.Id.Update(resource);
         }
 
-        var completesAt = ctx.Timestamp + TimeSpan.FromMilliseconds(activity.DurationMs);
+        var durationMs = activity.DurationMs;
+        if (type == ActivityType.Study)
+            durationMs = GetEffectiveDurationMs(durationMs, GetStat(ctx, ctx.Sender, StatType.Intelligence));
+        else if (type == ActivityType.Focus)
+            durationMs = GetEffectiveDurationMs(durationMs, GetStat(ctx, ctx.Sender, StatType.Perception));
+
+        var completesAt = ctx.Timestamp + TimeSpan.FromMilliseconds(durationMs);
 
         ctx.Db.ActiveTask.Insert(new ActiveTask {
             Participant = ctx.Sender,
@@ -292,6 +333,11 @@ public static partial class Module
                 break;
             case ActivityType.Study:
                 Study(ctx, task.Participant);
+                UpdateActivityDuration(ctx, task.Participant, ActivityType.Study, StatType.Intelligence);
+                break;
+            case ActivityType.Focus:
+                Focus(ctx, task.Participant);
+                UpdateActivityDuration(ctx, task.Participant, ActivityType.Focus, StatType.Perception);
                 break;
             default:
                 throw new Exception("Unknown activity type");

@@ -1,7 +1,7 @@
 using Godot;
 using System;
 using SpacetimeDB;
-using SpacetimeDB.Types;
+using SpacetimeDB.ClientApi;
 using System.Linq;
 
 public partial class Activity : VBoxContainer
@@ -14,6 +14,10 @@ public partial class Activity : VBoxContainer
 	private ulong trackingId;
 	private SpacetimeDB.Types.ActiveTask? currentTask;
 
+	private static Activity s_autoRepeatActivity;
+
+	private bool _autoRepeatArmed;
+
 	public override void _Ready()
 	{
 		ActivateButton = GetNode<Button>("%ActivateButton");
@@ -22,59 +26,161 @@ public partial class Activity : VBoxContainer
 		ProgressBar = GetNode<ProgressBar>("%ProgressBar");
 
 		ActivateButton.Pressed += OnActivatePressed;
+		ActivateButton.GuiInput += OnActivateButtonGuiInput;
 	}
 
-	public void InitActivityTracking(ulong id) {
+	public override void _ExitTree()
+	{
+		if (ReferenceEquals(s_autoRepeatActivity, this))
+		{
+			s_autoRepeatActivity = null;
+		}
+
+		_autoRepeatArmed = false;
+		base._ExitTree();
+	}
+
+	public void InitActivityTracking(ulong id)
+	{
 		trackingId = id;
 		var conn = SpacetimeNetworkManager.Instance.Conn;
+
+		conn.Reducers.OnStartActivity -= OnStartActivityReducer;
+		conn.Reducers.OnStartActivity += OnStartActivityReducer;
 
 		var activity = conn.Db.Activity.Id.Find(id);
 		Format(activity);
 
-		conn.Db.Activity.OnUpdate += (EventContext ctx, SpacetimeDB.Types.Activity oldActivity, SpacetimeDB.Types.Activity newActivity) => {
+		conn.Db.Activity.OnUpdate += (SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.Activity oldActivity, SpacetimeDB.Types.Activity newActivity) =>
+		{
 			if (newActivity.Id != trackingId) return;
 			Format(newActivity);
 		};
 
 		var identity = SpacetimeNetworkManager.Instance.LocalIdentity;
 		var existingTask = conn.Db.ActiveTask.Participant.Find(identity);
-		if (existingTask is SpacetimeDB.Types.ActiveTask task) {
+		if (existingTask is SpacetimeDB.Types.ActiveTask task)
+		{
 			OnActiveTaskStarted(task);
 		}
 
-		conn.Db.ActiveTask.OnInsert += (EventContext ctx, SpacetimeDB.Types.ActiveTask task) => {
+		conn.Db.ActiveTask.OnInsert += (SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.ActiveTask task) =>
+		{
 			if (task.Participant != identity) return;
 			OnActiveTaskStarted(task);
 		};
 
-		conn.Db.ActiveTask.OnDelete += (EventContext ctx, SpacetimeDB.Types.ActiveTask task) => {
+		conn.Db.ActiveTask.OnDelete += (SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.ActiveTask task) =>
+		{
 			if (task.Participant != identity) return;
-			OnActiveTaskFinished();
+			OnActiveTaskFinished(task);
 		};
 	}
 
-	private void OnActiveTaskStarted(SpacetimeDB.Types.ActiveTask task) {
+	private void OnActivateButtonGuiInput(InputEvent @event)
+	{
+		if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Right)
+		{
+			ToggleAutoRepeat();
+			ActivateButton.GetViewport().SetInputAsHandled();
+		}
+	}
+
+	private void ToggleAutoRepeat()
+	{
+		if (_autoRepeatArmed && ReferenceEquals(s_autoRepeatActivity, this))
+		{
+			_autoRepeatArmed = false;
+			s_autoRepeatActivity = null;
+			RefreshFormat();
+			return;
+		}
+
+		if (s_autoRepeatActivity != null && !ReferenceEquals(s_autoRepeatActivity, this))
+		{
+			s_autoRepeatActivity._autoRepeatArmed = false;
+			s_autoRepeatActivity.RefreshFormat();
+		}
+
+		s_autoRepeatActivity = this;
+		_autoRepeatArmed = true;
+		RefreshFormat();
+
+		if (currentTask == null)
+		{
+			RequestStartActivity();
+		}
+	}
+
+	private static void OnStartActivityReducer(SpacetimeDB.Types.ReducerEventContext ctx, SpacetimeDB.Types.ActivityType type)
+	{
+		switch (ctx.Event.Status)
+		{
+			case Status.Failed:
+			case Status.OutOfEnergy:
+				var row = s_autoRepeatActivity;
+				if (row == null || !row._autoRepeatArmed) return;
+				var conn = SpacetimeNetworkManager.Instance?.Conn;
+				if (conn == null) return;
+				if (conn.Db.Activity.Id.Find(row.trackingId) is not SpacetimeDB.Types.Activity activity
+					|| activity.Type != type)
+				{
+					return;
+				}
+
+				row._autoRepeatArmed = false;
+				s_autoRepeatActivity = null;
+				row.RefreshFormat();
+				break;
+		}
+	}
+
+	private void OnActiveTaskStarted(SpacetimeDB.Types.ActiveTask task)
+	{
 		currentTask = task;
 		var activity = SpacetimeNetworkManager.Instance.Conn.Db.Activity.Id.Find(trackingId);
 
-		if (task.Type == activity.Type) {
+		if (task.Type == activity.Type)
+		{
 			ActivateButton.Disabled = true;
 			ProgressBar.Visible = true;
 			ProgressBar.Value = 0;
-		} else {
+		}
+		else
+		{
 			ActivateButton.Disabled = true;
 			ProgressBar.Visible = false;
 		}
 	}
 
-	private void OnActiveTaskFinished() {
+	private void OnActiveTaskFinished(SpacetimeDB.Types.ActiveTask finishedTask)
+	{
 		currentTask = null;
 		ActivateButton.Disabled = false;
 		ProgressBar.Visible = false;
 		ProgressBar.Value = 0;
+
+		var activity = SpacetimeNetworkManager.Instance.Conn.Db.Activity.Id.Find(trackingId);
+		if (_autoRepeatArmed
+			&& ReferenceEquals(s_autoRepeatActivity, this)
+			&& finishedTask.Type == activity.Type)
+		{
+			RequestStartActivity();
+		}
 	}
 
-	public override void _Process(double delta) {
+	private void RefreshFormat()
+	{
+		var conn = SpacetimeNetworkManager.Instance?.Conn;
+		if (conn == null) return;
+		if (conn.Db.Activity.Id.Find(trackingId) is SpacetimeDB.Types.Activity row)
+		{
+			Format(row);
+		}
+	}
+
+	public override void _Process(double delta)
+	{
 		if (currentTask is not SpacetimeDB.Types.ActiveTask task) return;
 
 		var activity = SpacetimeNetworkManager.Instance.Conn.Db.Activity.Id.Find(trackingId);
@@ -83,7 +189,8 @@ public partial class Activity : VBoxContainer
 		var startUs = task.StartedAt.MicrosecondsSinceUnixEpoch;
 		var endUs = task.CompletesAt.MicrosecondsSinceUnixEpoch;
 		var totalUs = (double)(endUs - startUs);
-		if (totalUs <= 0) {
+		if (totalUs <= 0)
+		{
 			ProgressBar.Value = 100;
 			return;
 		}
@@ -94,15 +201,18 @@ public partial class Activity : VBoxContainer
 		ProgressBar.Value = progress;
 	}
 
-	private void Format(SpacetimeDB.Types.Activity activity) {
-		ActivateButton.Text = activity.Type.ToString();
+	private void Format(SpacetimeDB.Types.Activity activity)
+	{
+		ActivateButton.Text = activity.Type.ToString() + (_autoRepeatArmed ? " (AUTO)" : "");
 
 		CostLabel.Text = "Cost: ";
-		foreach (var cost in activity.Cost) {
+		foreach (var cost in activity.Cost)
+		{
 			CostLabel.Text += $"{cost.Amount} {cost.Type},";
 		}
 		CostLabel.Text = CostLabel.Text.TrimSuffix(",");
-		if (activity.Cost.Count == 0) {
+		if (activity.Cost.Count == 0)
+		{
 			CostLabel.Text = "";
 		}
 
@@ -110,7 +220,13 @@ public partial class Activity : VBoxContainer
 		DurationLabel.Text = seconds >= 1.0 ? $"{seconds:F0}s" : $"{seconds:F1}s";
 	}
 
-	private void OnActivatePressed() {
+	private void OnActivatePressed()
+	{
+		RequestStartActivity();
+	}
+
+	private void RequestStartActivity()
+	{
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		var activity = conn.Db.Activity.Id.Find(trackingId);
 		conn.Reducers.StartActivity(activity.Type);

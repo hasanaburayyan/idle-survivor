@@ -1,3 +1,8 @@
+# Game Core Principals
+- Efficency is king, there will be thousands of active players so no room for waste in the database.
+- Multiplayer is foundational to the system, so no decision that will tie us to single player.
+
+
 # SpacetimeDB Rules (All Languages)
 
 ## Migrating from 1.0 to 2.0?
