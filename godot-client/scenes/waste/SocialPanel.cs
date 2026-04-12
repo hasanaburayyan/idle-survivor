@@ -1,24 +1,18 @@
 using Godot;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using SpacetimeDB;
 using SpacetimeDB.Types;
 
-public partial class GameMenu : CanvasLayer
+/// <summary>
+/// Guild and invites UI (formerly GameMenu "Social" tab). Friends list is not implemented yet.
+/// </summary>
+public partial class SocialPanel : VBoxContainer
 {
-	private PanelContainer _panel;
-	private TabBar _tabBar;
-	private Control _generalTab;
-	private Control _socialTab;
-
-	// No-guild controls
 	private VBoxContainer _noGuildContainer;
 	private LineEdit _guildNameInput;
 	private Button _createGuildButton;
 	private VBoxContainer _invitesList;
 
-	// In-guild controls
 	private VBoxContainer _inGuildContainer;
 	private Label _guildNameLabel;
 	private VBoxContainer _membersList;
@@ -33,60 +27,24 @@ public partial class GameMenu : CanvasLayer
 	[Signal]
 	public delegate void GuildSessionChangedEventHandler(bool inSession);
 
-	private bool _isOpen;
-
 	public override void _Ready()
 	{
-		Layer = 10;
-		Visible = false;
-		_isOpen = false;
+		SizeFlagsHorizontal = SizeFlags.Fill | SizeFlags.Expand;
+		SizeFlagsVertical = SizeFlags.Fill | SizeFlags.Expand;
 
-		_panel = new PanelContainer();
-		_panel.AnchorsPreset = (int)Control.LayoutPreset.Center;
-		_panel.AnchorLeft = 0.1f;
-		_panel.AnchorRight = 0.9f;
-		_panel.AnchorTop = 0.1f;
-		_panel.AnchorBottom = 0.9f;
-		_panel.OffsetLeft = 0;
-		_panel.OffsetRight = 0;
-		_panel.OffsetTop = 0;
-		_panel.OffsetBottom = 0;
-		_panel.GrowHorizontal = Control.GrowDirection.Both;
-		_panel.GrowVertical = Control.GrowDirection.Both;
-		AddChild(_panel);
+		var friendsHeader = new Label();
+		friendsHeader.Text = "Friends";
+		friendsHeader.AddThemeFontSizeOverride("font_size", 24);
+		friendsHeader.HorizontalAlignment = HorizontalAlignment.Center;
+		AddChild(friendsHeader);
 
-		var mainVBox = new VBoxContainer();
-		mainVBox.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		mainVBox.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		_panel.AddChild(mainVBox);
+		var friendsPlaceholder = new Label();
+		friendsPlaceholder.Text = "Coming soon";
+		friendsPlaceholder.HorizontalAlignment = HorizontalAlignment.Center;
+		friendsPlaceholder.AddThemeColorOverride("font_color", new Color(0.65f, 0.65f, 0.65f));
+		AddChild(friendsPlaceholder);
 
-		_tabBar = new TabBar();
-		_tabBar.AddTab("General");
-		_tabBar.AddTab("Social");
-		_tabBar.TabChanged += OnTabChanged;
-		mainVBox.AddChild(_tabBar);
-
-		var tabContent = new MarginContainer();
-		tabContent.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		tabContent.AddThemeConstantOverride("margin_left", 16);
-		tabContent.AddThemeConstantOverride("margin_right", 16);
-		tabContent.AddThemeConstantOverride("margin_top", 16);
-		tabContent.AddThemeConstantOverride("margin_bottom", 16);
-		mainVBox.AddChild(tabContent);
-
-		_generalTab = new VBoxContainer();
-		var notYetLabel = new Label();
-		notYetLabel.Text = "Not yet implemented";
-		notYetLabel.HorizontalAlignment = HorizontalAlignment.Center;
-		notYetLabel.VerticalAlignment = VerticalAlignment.Center;
-		notYetLabel.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		_generalTab.AddChild(notYetLabel);
-		tabContent.AddChild(_generalTab);
-
-		_socialTab = new VBoxContainer();
-		_socialTab.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		_socialTab.Visible = false;
-		tabContent.AddChild(_socialTab);
+		AddChild(new HSeparator());
 
 		BuildNoGuildUI();
 		BuildInGuildUI();
@@ -94,57 +52,10 @@ public partial class GameMenu : CanvasLayer
 		RefreshSocialTab();
 	}
 
-	public override void _UnhandledInput(InputEvent @event)
-	{
-		if (@event.IsActionPressed("menu_toggle"))
-		{
-			if (_isOpen)
-				CloseMenu();
-			else
-				OpenMenu(0);
-			GetViewport().SetInputAsHandled();
-		}
-		else if (@event.IsActionPressed("social_toggle"))
-		{
-			if (_isOpen && _tabBar.CurrentTab == 1)
-				CloseMenu();
-			else
-				OpenMenu(1);
-			GetViewport().SetInputAsHandled();
-		}
-	}
-
-	private void OpenMenu(int tab)
-	{
-		_isOpen = true;
-		Visible = true;
-		_tabBar.CurrentTab = tab;
-		ShowTab(tab);
-	}
-
-	private void CloseMenu()
-	{
-		_isOpen = false;
-		Visible = false;
-	}
-
-	private void OnTabChanged(long tab)
-	{
-		ShowTab((int)tab);
-	}
-
-	private void ShowTab(int tab)
-	{
-		_generalTab.Visible = tab == 0;
-		_socialTab.Visible = tab == 1;
-		if (tab == 1)
-			RefreshSocialTab();
-	}
-
 	private void BuildNoGuildUI()
 	{
 		_noGuildContainer = new VBoxContainer();
-		_noGuildContainer.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_noGuildContainer.SizeFlagsVertical = SizeFlags.Fill | SizeFlags.Expand;
 
 		var createHeader = new Label();
 		createHeader.Text = "Create a Guild";
@@ -155,7 +66,7 @@ public partial class GameMenu : CanvasLayer
 		var createRow = new HBoxContainer();
 		_guildNameInput = new LineEdit();
 		_guildNameInput.PlaceholderText = "Guild name...";
-		_guildNameInput.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_guildNameInput.SizeFlagsHorizontal = SizeFlags.Fill | SizeFlags.Expand;
 		createRow.AddChild(_guildNameInput);
 
 		_createGuildButton = new Button();
@@ -173,19 +84,19 @@ public partial class GameMenu : CanvasLayer
 		_noGuildContainer.AddChild(invitesHeader);
 
 		var invitesScroll = new ScrollContainer();
-		invitesScroll.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		invitesScroll.SizeFlagsVertical = SizeFlags.Fill | SizeFlags.Expand;
 		_invitesList = new VBoxContainer();
-		_invitesList.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_invitesList.SizeFlagsHorizontal = SizeFlags.Fill | SizeFlags.Expand;
 		invitesScroll.AddChild(_invitesList);
 		_noGuildContainer.AddChild(invitesScroll);
 
-		_socialTab.AddChild(_noGuildContainer);
+		AddChild(_noGuildContainer);
 	}
 
 	private void BuildInGuildUI()
 	{
 		_inGuildContainer = new VBoxContainer();
-		_inGuildContainer.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_inGuildContainer.SizeFlagsVertical = SizeFlags.Fill | SizeFlags.Expand;
 
 		_guildNameLabel = new Label();
 		_guildNameLabel.AddThemeFontSizeOverride("font_size", 32);
@@ -194,7 +105,6 @@ public partial class GameMenu : CanvasLayer
 
 		_inGuildContainer.AddChild(new HSeparator());
 
-		// Session buttons
 		var sessionRow = new HBoxContainer();
 		sessionRow.Alignment = BoxContainer.AlignmentMode.Center;
 		_enterSessionButton = new Button();
@@ -210,7 +120,6 @@ public partial class GameMenu : CanvasLayer
 
 		_inGuildContainer.AddChild(new HSeparator());
 
-		// Members
 		var membersHeader = new Label();
 		membersHeader.Text = "Members";
 		membersHeader.AddThemeFontSizeOverride("font_size", 24);
@@ -218,18 +127,17 @@ public partial class GameMenu : CanvasLayer
 		_inGuildContainer.AddChild(membersHeader);
 
 		var membersScroll = new ScrollContainer();
-		membersScroll.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		membersScroll.CustomMinimumSize = new Godot.Vector2(0, 120);
+		membersScroll.SizeFlagsVertical = SizeFlags.Fill | SizeFlags.Expand;
+		membersScroll.CustomMinimumSize = new Vector2(0, 120);
 		_membersList = new VBoxContainer();
-		_membersList.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_membersList.SizeFlagsHorizontal = SizeFlags.Fill | SizeFlags.Expand;
 		membersScroll.AddChild(_membersList);
 		_inGuildContainer.AddChild(membersScroll);
 
-		// Invite row
 		var inviteRow = new HBoxContainer();
 		_invitePlayerInput = new LineEdit();
 		_invitePlayerInput.PlaceholderText = "Player name to invite...";
-		_invitePlayerInput.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_invitePlayerInput.SizeFlagsHorizontal = SizeFlags.Fill | SizeFlags.Expand;
 		inviteRow.AddChild(_invitePlayerInput);
 		_inviteButton = new Button();
 		_inviteButton.Text = "Invite";
@@ -239,7 +147,6 @@ public partial class GameMenu : CanvasLayer
 
 		_inGuildContainer.AddChild(new HSeparator());
 
-		// Guild resources
 		var resourcesHeader = new Label();
 		resourcesHeader.Text = "Guild Treasury";
 		resourcesHeader.AddThemeFontSizeOverride("font_size", 24);
@@ -247,16 +154,15 @@ public partial class GameMenu : CanvasLayer
 		_inGuildContainer.AddChild(resourcesHeader);
 
 		var resourcesScroll = new ScrollContainer();
-		resourcesScroll.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		resourcesScroll.CustomMinimumSize = new Godot.Vector2(0, 80);
+		resourcesScroll.SizeFlagsVertical = SizeFlags.Fill | SizeFlags.Expand;
+		resourcesScroll.CustomMinimumSize = new Vector2(0, 80);
 		_guildResourcesList = new VBoxContainer();
-		_guildResourcesList.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_guildResourcesList.SizeFlagsHorizontal = SizeFlags.Fill | SizeFlags.Expand;
 		resourcesScroll.AddChild(_guildResourcesList);
 		_inGuildContainer.AddChild(resourcesScroll);
 
 		_inGuildContainer.AddChild(new HSeparator());
 
-		// Action buttons
 		var actionsRow = new HBoxContainer();
 		actionsRow.Alignment = BoxContainer.AlignmentMode.Center;
 		_leaveGuildButton = new Button();
@@ -270,10 +176,10 @@ public partial class GameMenu : CanvasLayer
 		actionsRow.AddChild(_disbandGuildButton);
 		_inGuildContainer.AddChild(actionsRow);
 
-		_socialTab.AddChild(_inGuildContainer);
+		AddChild(_inGuildContainer);
 	}
 
-	private void RefreshSocialTab()
+	public void RefreshSocialTab()
 	{
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
@@ -313,7 +219,7 @@ public partial class GameMenu : CanvasLayer
 			var row = new HBoxContainer();
 			var label = new Label();
 			label.Text = $"{guildName} (from {inviterName})";
-			label.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+			label.SizeFlagsHorizontal = SizeFlags.Fill | SizeFlags.Expand;
 			row.AddChild(label);
 
 			var acceptBtn = new Button();
@@ -352,7 +258,6 @@ public partial class GameMenu : CanvasLayer
 		_enterSessionButton.Visible = !membership.InSession;
 		_leaveSessionButton.Visible = membership.InSession;
 
-		// Members list
 		foreach (var child in _membersList.GetChildren())
 			child.QueueFree();
 
@@ -363,7 +268,7 @@ public partial class GameMenu : CanvasLayer
 
 			var nameLabel = new Label();
 			nameLabel.Text = player?.DisplayName ?? "Unknown";
-			nameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+			nameLabel.SizeFlagsHorizontal = SizeFlags.Fill | SizeFlags.Expand;
 			row.AddChild(nameLabel);
 
 			var statusLabel = new Label();
@@ -381,7 +286,6 @@ public partial class GameMenu : CanvasLayer
 			_membersList.AddChild(row);
 		}
 
-		// Guild resources
 		foreach (var child in _guildResourcesList.GetChildren())
 			child.QueueFree();
 
@@ -390,7 +294,7 @@ public partial class GameMenu : CanvasLayer
 			var row = new HBoxContainer();
 			var nameLabel = new Label();
 			nameLabel.Text = resource.Type.ToString();
-			nameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+			nameLabel.SizeFlagsHorizontal = SizeFlags.Fill | SizeFlags.Expand;
 			row.AddChild(nameLabel);
 
 			var amountLabel = new Label();

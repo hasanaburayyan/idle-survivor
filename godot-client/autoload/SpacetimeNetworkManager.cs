@@ -38,8 +38,8 @@ public partial class SpacetimeNetworkManager : Node
 		GD.Print("Attempting to connect to SpacetimeDB");
 
 		var builder = DbConnection.Builder()
-		//   .WithUri("http://127.0.0.1:3000")
-		.WithUri("https://maincloud.spacetimedb.com")
+		  .WithUri("http://127.0.0.1:3000")
+		//.WithUri("https://maincloud.spacetimedb.com")
 		  .WithDatabaseName("idle-survivor")
 		  .OnConnect(OnConnected)
 		  .OnConnectError(OnConnectError)

@@ -6,9 +6,9 @@
 [node name="Main" type="Node2D" unique_id=1651756053]
 script = ExtResource("1_glv2v")
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=879299131]
 
-[node name="CenterContainer" type="CenterContainer" parent="CanvasLayer"]
+[node name="CenterContainer" type="CenterContainer" parent="CanvasLayer" unique_id=1515862186]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -16,42 +16,42 @@ grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("2_theme")
 
-[node name="MenuPanel" type="VBoxContainer" parent="CanvasLayer/CenterContainer"]
+[node name="MenuPanel" type="VBoxContainer" parent="CanvasLayer/CenterContainer" unique_id=1067373258]
 layout_mode = 2
 theme_override_constants/separation = 16
 
-[node name="TitleLabel" type="Label" parent="CanvasLayer/CenterContainer/MenuPanel"]
+[node name="TitleLabel" type="Label" parent="CanvasLayer/CenterContainer/MenuPanel" unique_id=994412560]
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
 text = "Idle Survivor"
 horizontal_alignment = 1
 
-[node name="IdentityPrompt" type="VBoxContainer" parent="CanvasLayer/CenterContainer/MenuPanel"]
+[node name="IdentityPrompt" type="VBoxContainer" parent="CanvasLayer/CenterContainer/MenuPanel" unique_id=1182459326]
 unique_name_in_owner = true
-layout_mode = 2
 visible = false
+layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="PromptLabel" type="Label" parent="CanvasLayer/CenterContainer/MenuPanel/IdentityPrompt"]
+[node name="PromptLabel" type="Label" parent="CanvasLayer/CenterContainer/MenuPanel/IdentityPrompt" unique_id=1699474458]
 layout_mode = 2
 text = "Saved identity found. Use it?"
 horizontal_alignment = 1
 
 [node name="UseSavedButton" type="Button" parent="CanvasLayer/CenterContainer/MenuPanel/IdentityPrompt" unique_id=200000002]
 unique_name_in_owner = true
-layout_mode = 2
 custom_minimum_size = Vector2(250, 40)
+layout_mode = 2
 text = "Use Saved"
 
 [node name="NewIdentityButton" type="Button" parent="CanvasLayer/CenterContainer/MenuPanel/IdentityPrompt" unique_id=200000003]
 unique_name_in_owner = true
-layout_mode = 2
 custom_minimum_size = Vector2(250, 40)
+layout_mode = 2
 text = "New Identity"
 
 [node name="StartButton" type="Button" parent="CanvasLayer/CenterContainer/MenuPanel" unique_id=741327891]
 unique_name_in_owner = true
-layout_mode = 2
 visible = false
 custom_minimum_size = Vector2(250, 50)
+layout_mode = 2
 text = "Start"

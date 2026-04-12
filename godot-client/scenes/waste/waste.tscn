@@ -2,71 +2,285 @@
 
 [ext_resource type="Script" uid="uid://cva7b2v5axjgv" path="res://scenes/waste/Waste.cs" id="1_u24a1"]
 [ext_resource type="Script" uid="uid://lgnpk70neftg" path="res://scenes/waste/PlayerStatsPanel.cs" id="2_stats"]
-[ext_resource type="Theme" path="res://theme/default_theme.tres" id="3_theme"]
+[ext_resource type="Script" path="res://scenes/waste/SocialPanel.cs" id="3_social"]
+[ext_resource type="Theme" path="res://theme/default_theme.tres" id="4_theme"]
 
-[node name="Waste" type="Node2D" unique_id=800160988]
+[node name="Waste" type="Node2D"]
 script = ExtResource("1_u24a1")
 
-[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=2081387567]
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
 
-[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer" unique_id=1894040999]
+[node name="MainMargins" type="MarginContainer" parent="CanvasLayer"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme = ExtResource("3_theme")
+theme = ExtResource("4_theme")
 theme_override_constants/margin_left = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/MarginContainer" unique_id=1343791926]
+[node name="MainColumn" type="VBoxContainer" parent="CanvasLayer/MainMargins"]
 layout_mode = 2
-theme_override_constants/separation = 24
+theme_override_constants/separation = 0
 
-[node name="LeftSide" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer" unique_id=1475836808]
+[node name="MainHudColumn" type="VBoxContainer" parent="CanvasLayer/MainMargins/MainColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ActivitiesRow" type="HBoxContainer" parent="CanvasLayer/MainMargins/MainColumn/MainHudColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Activities" type="VBoxContainer" parent="CanvasLayer/MainMargins/MainColumn/MainHudColumn/ActivitiesRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Middle" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer" unique_id=682266470]
+[node name="BottomNavBar" type="HBoxContainer" parent="CanvasLayer/MainMargins/MainColumn"]
+custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
-size_flags_horizontal = 3
+theme_override_constants/separation = 8
+alignment = 1
 
-[node name="PlayerStatsPanel" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/Middle" unique_id=210374254]
+[node name="BtnCharacter" type="Button" parent="CanvasLayer/MainMargins/MainColumn/BottomNavBar"]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_vertical = 0
+size_flags_horizontal = 3
+text = "Character"
+
+[node name="BtnInventory" type="Button" parent="CanvasLayer/MainMargins/MainColumn/BottomNavBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Inventory"
+
+[node name="BtnSocial" type="Button" parent="CanvasLayer/MainMargins/MainColumn/BottomNavBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Social"
+
+[node name="BtnSystem" type="Button" parent="CanvasLayer/MainMargins/MainColumn/BottomNavBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "System"
+
+[node name="HudOverlay" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="CharacterPanel" type="PanelContainer" parent="CanvasLayer/HudOverlay"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.05
+anchor_top = 0.12
+anchor_right = 0.95
+anchor_bottom = 1.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = -72.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/HudOverlay/CharacterPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/HudOverlay/CharacterPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TitleRow" type="HBoxContainer" parent="CanvasLayer/HudOverlay/CharacterPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="CanvasLayer/HudOverlay/CharacterPanel/MarginContainer/VBoxContainer/TitleRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Character"
+
+[node name="CloseCharacter" type="Button" parent="CanvasLayer/HudOverlay/CharacterPanel/MarginContainer/VBoxContainer/TitleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
+
+[node name="PlayerStatsPanel" type="VBoxContainer" parent="CanvasLayer/HudOverlay/CharacterPanel/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
 script = ExtResource("2_stats")
 
-[node name="HeaderLabel" type="Label" parent="CanvasLayer/MarginContainer/HBoxContainer/Middle/PlayerStatsPanel" unique_id=974718336]
+[node name="HeaderLabel" type="Label" parent="CanvasLayer/HudOverlay/CharacterPanel/MarginContainer/VBoxContainer/PlayerStatsPanel"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "Player Stats"
 horizontal_alignment = 1
 
-[node name="RightSide" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer" unique_id=1325974065]
+[node name="InventoryPanel" type="PanelContainer" parent="CanvasLayer/HudOverlay"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.05
+anchor_top = 0.12
+anchor_right = 0.95
+anchor_bottom = 1.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = -72.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/HudOverlay/InventoryPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/HudOverlay/InventoryPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TitleRow" type="HBoxContainer" parent="CanvasLayer/HudOverlay/InventoryPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="CanvasLayer/HudOverlay/InventoryPanel/MarginContainer/VBoxContainer/TitleRow"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Inventory"
 
-[node name="Top" type="HBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightSide" unique_id=1415258686]
+[node name="CloseInventory" type="Button" parent="CanvasLayer/HudOverlay/InventoryPanel/MarginContainer/VBoxContainer/TitleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="CanvasLayer/HudOverlay/InventoryPanel/MarginContainer/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Middle" type="HBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightSide" unique_id=1412844210]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="Activities" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightSide/Middle" unique_id=230876899]
+[node name="InventoryList" type="VBoxContainer" parent="CanvasLayer/HudOverlay/InventoryPanel/MarginContainer/VBoxContainer/ScrollContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 
-[node name="Bottom" type="HBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightSide" unique_id=289067606]
+[node name="SocialPanelRoot" type="PanelContainer" parent="CanvasLayer/HudOverlay"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.05
+anchor_top = 0.08
+anchor_right = 0.95
+anchor_bottom = 1.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = -72.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/HudOverlay/SocialPanelRoot"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="VBoxOuter" type="VBoxContainer" parent="CanvasLayer/HudOverlay/SocialPanelRoot/MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="TitleRow" type="HBoxContainer" parent="CanvasLayer/HudOverlay/SocialPanelRoot/MarginContainer/VBoxOuter"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="CanvasLayer/HudOverlay/SocialPanelRoot/MarginContainer/VBoxOuter/TitleRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Social"
+
+[node name="CloseSocial" type="Button" parent="CanvasLayer/HudOverlay/SocialPanelRoot/MarginContainer/VBoxOuter/TitleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="CanvasLayer/HudOverlay/SocialPanelRoot/MarginContainer/VBoxOuter"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="PlayerSpawnLocation" type="Marker2D" parent="." unique_id=984251143]
+[node name="SocialPanel" type="VBoxContainer" parent="CanvasLayer/HudOverlay/SocialPanelRoot/MarginContainer/VBoxOuter/ScrollContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource("3_social")
+
+[node name="SystemPanel" type="PanelContainer" parent="CanvasLayer/HudOverlay"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.05
+anchor_top = 0.35
+anchor_right = 0.95
+anchor_bottom = 1.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = -72.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/HudOverlay/SystemPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/HudOverlay/SystemPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TitleRow" type="HBoxContainer" parent="CanvasLayer/HudOverlay/SystemPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="CanvasLayer/HudOverlay/SystemPanel/MarginContainer/VBoxContainer/TitleRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "System"
+
+[node name="CloseSystem" type="Button" parent="CanvasLayer/HudOverlay/SystemPanel/MarginContainer/VBoxContainer/TitleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
+
+[node name="PlaceholderLabel" type="Label" parent="CanvasLayer/HudOverlay/SystemPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Options and settings will appear here in a future update."
+autowrap_mode = 3
+
+[node name="PlayerSpawnLocation" type="Marker2D" parent="."]
 unique_name_in_owner = true
 position = Vector2(572, 306)
