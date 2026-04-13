@@ -50,6 +50,16 @@ public static partial class Module {
             Level = 1
         });
 
+        ctx.Db.Activity.Insert(new Activity{
+            Participant = ctx.Sender,
+            Type = ActivityType.LootBigWood,
+            Cost = [],
+            DurationMs = 500,
+            RequiredLocation = LocationType.Waste,
+            UnlockCriteria = [],
+            Level = 1
+        });
+
         ctx.Db.Activity.Insert(new Activity {
             Participant = ctx.Sender,
             Type = ActivityType.CarbLoad,

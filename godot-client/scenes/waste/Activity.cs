@@ -208,14 +208,12 @@ public partial class Activity : VBoxContainer
 		_autoRepeatArmed = true;
 		RefreshFormat();
 
-		if (currentTask == null)
-		{
-			var conn = SpacetimeNetworkManager.Instance.Conn;
-			var row = conn.Db.Activity.Id.Find(trackingId);
-			var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
-			if (row is not null && ActivityMeetsUnlockCriteria(conn, localId, row))
-				RequestStartActivity();
-		}
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var row = conn.Db.Activity.Id.Find(trackingId);
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+		bool alreadyRunningThis = currentTask != null && currentTask?.Type == row?.Type;
+		if (!alreadyRunningThis && row is not null && ActivityMeetsUnlockCriteria(conn, localId, row))
+			RequestStartActivity();
 	}
 
 	private static void OnStartActivityReducer(SpacetimeDB.Types.ReducerEventContext ctx, SpacetimeDB.Types.ActivityType type)
@@ -492,8 +490,7 @@ public partial class Activity : VBoxContainer
 		var title = $"{GetActivityDisplayName(activity.Type)} Lv{activity.Level}" + (_autoRepeatArmed ? " (AUTO)" : "");
 		ActivateButton.Text = title;
 
-		bool busy = currentTask != null;
-		ActivateButton.Disabled = busy;
+		ActivateButton.Disabled = false;
 
 		var costParts = new List<string>();
 		if (activity.Cost.Count > 0)
@@ -516,7 +513,7 @@ public partial class Activity : VBoxContainer
 			else
 			{
 				UpgradeCostLabel.Text = "Next: " + string.Join(", ", upgradeCosts.Select(c => $"{c.Amount} {c.Type}"));
-				UpgradeButton.Disabled = busy || !PlayerCanAfford(conn, localId, upgradeCosts);
+				UpgradeButton.Disabled = !PlayerCanAfford(conn, localId, upgradeCosts);
 			}
 		}
 		else
@@ -542,6 +539,13 @@ public partial class Activity : VBoxContainer
 
 	private void RequestStartActivity()
 	{
+		if (s_autoRepeatActivity != null && !ReferenceEquals(s_autoRepeatActivity, this))
+		{
+			s_autoRepeatActivity._autoRepeatArmed = false;
+			s_autoRepeatActivity.RefreshFormat();
+			s_autoRepeatActivity = null;
+		}
+
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		var activity = conn.Db.Activity.Id.Find(trackingId);
 		conn.Reducers.StartActivity(activity.Type);

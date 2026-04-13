@@ -17,6 +17,7 @@ public static partial class Module
             StartWasteSchedules(ctx, player.Identity);
         }
 
+        EnsureLootBigWoodActivity(ctx, player.Identity);
         EnsureSearchActivities(ctx, player.Identity);
         EnsureActivityLevels(ctx, player.Identity);
     }

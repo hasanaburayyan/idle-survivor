@@ -68,6 +68,7 @@ public static partial class Module
         [SpacetimeDB.AutoInc]
         public ulong ScheduleId;
         public ScheduleAt ScheduledAt;
+        [SpacetimeDB.Index.BTree]
         public Identity Participant;
         public ActivityType Type;
     }
@@ -282,12 +283,30 @@ public static partial class Module
     /// <summary>Backfill Level for rows created before the Level column existed (0 = unset).</summary>
     public static void EnsureActivityLevels(ReducerContext ctx, Identity participant)
     {
-        foreach (var act in ctx.Db.Activity.Iter())
+        foreach (var act in ctx.Db.Activity.Participant.Filter(participant))
         {
-            if (act.Participant != participant || act.Level != 0)
+            if (act.Level != 0)
                 continue;
             ctx.Db.Activity.Id.Update(act with { Level = 1u });
         }
+    }
+
+    public static void EnsureLootBigWoodActivity(ReducerContext ctx, Identity participant)
+    {
+        if (ctx.Db.Activity.by_activity_participant_type
+            .Filter((Participant: participant, Type: ActivityType.LootBigWood)).Any())
+            return;
+
+        ctx.Db.Activity.Insert(new Activity
+        {
+            Participant = participant,
+            Type = ActivityType.LootBigWood,
+            Cost = [],
+            DurationMs = 500,
+            RequiredLocation = LocationType.Waste,
+            UnlockCriteria = [],
+            Level = 1
+        });
     }
 
     public static void EnsureSearchActivities(ReducerContext ctx, Identity participant)
@@ -489,8 +508,11 @@ public static partial class Module
 
     [SpacetimeDB.Reducer]
     public static void StartActivity(ReducerContext ctx, ActivityType type) {
-        if (ctx.Db.ActiveTask.Participant.Find(ctx.Sender) is ActiveTask) {
-            throw new Exception("Already doing an activity");
+        if (ctx.Db.ActiveTask.Participant.Find(ctx.Sender) is ActiveTask existing)
+        {
+            ctx.Db.ActiveTask.Id.Delete(existing.Id);
+            foreach (var pending in ctx.Db.TaskCompletion.Participant.Filter(ctx.Sender))
+                ctx.Db.TaskCompletion.ScheduleId.Delete(pending.ScheduleId);
         }
 
         if (ctx.Db.Player.Identity.Find(ctx.Sender) is not Player player)
@@ -500,21 +522,7 @@ public static partial class Module
             .Filter((Participant: ctx.Sender, Type: type)).First();
 
         ValidateActivityAccessible(ctx, ctx.Sender, player, activity);
-
-        foreach (var cost in activity.Cost) {
-            var resource = ctx.Db.ResourceTracker.by_owner_and_type
-                .Filter((Owner: ctx.Sender, Type: cost.Type)).First();
-            if (resource.Amount < cost.Amount) {
-                throw new Exception($"Insufficient {cost.Type}");
-            }
-        }
-
-        foreach (var cost in activity.Cost) {
-            var resource = ctx.Db.ResourceTracker.by_owner_and_type
-                .Filter((Owner: ctx.Sender, Type: cost.Type)).First();
-            resource.Amount -= cost.Amount;
-            ctx.Db.ResourceTracker.Id.Update(resource);
-        }
+        DeductActivityCosts(ctx, ctx.Sender, activity.Cost);
 
         var durationMs = activity.DurationMs;
         if (type == ActivityType.Study)
