@@ -9,6 +9,7 @@ public static partial class Module {
         public string DisplayName;
         public string? Email;
         public bool Online;
+        public LocationType Location;
     }
 
     [SpacetimeDB.Reducer]
@@ -24,7 +25,8 @@ public static partial class Module {
         ctx.Db.Player.Insert(new Player{
             Identity = ctx.Sender,
             DisplayName = displayName,
-            Online = true
+            Online = true,
+            Location = LocationType.Waste
         });
 
         SetStat(ctx, ctx.Sender, StatType.Health, 5);
@@ -36,14 +38,14 @@ public static partial class Module {
         SetStat(ctx, ctx.Sender, StatType.Endurance, 1);
         SetStat(ctx, ctx.Sender, StatType.Dexterity, 1);
 
-        StartActiveSchedules(ctx, ctx.Sender);
+        StartWasteSchedules(ctx, ctx.Sender);
 
-        // Give starting Activities
         ctx.Db.Activity.Insert(new Activity{
             Participant = ctx.Sender,
             Type = ActivityType.Scavenge,
             Cost = [],
-            DurationMs = 500
+            DurationMs = 500,
+            RequiredLocation = LocationType.Waste
         });
 
         ctx.Db.Activity.Insert(new Activity {
@@ -52,7 +54,20 @@ public static partial class Module {
             Cost = [
                 new ActivityCost{Type = ResourceType.Food, Amount = 60}
             ],
-            DurationMs = 2000
+            DurationMs = 2000,
+            RequiredLocation = null
+        });
+
+        ctx.Db.Activity.Insert(new Activity {
+            Participant = ctx.Sender,
+            Type = ActivityType.BuildShelter,
+            Cost = [
+                new ActivityCost{Type = ResourceType.Wood, Amount = 50},
+                new ActivityCost{Type = ResourceType.Metal, Amount = 30},
+                new ActivityCost{Type = ResourceType.Fabric, Amount = 20}
+            ],
+            DurationMs = 10_000,
+            RequiredLocation = LocationType.Waste
         });
     }
 

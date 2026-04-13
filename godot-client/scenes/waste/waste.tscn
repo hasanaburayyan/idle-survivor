@@ -15,86 +15,180 @@ content_margin_top = 10.0
 content_margin_right = 12.0
 content_margin_bottom = 12.0
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_locationbar"]
+bg_color = Color(0.1, 0.1, 0.13, 0.95)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_left = 8
+corner_radius_bottom_right = 8
+content_margin_left = 16.0
+content_margin_top = 8.0
+content_margin_right = 16.0
+content_margin_bottom = 8.0
+
 [node name="Waste" type="Node2D" unique_id=800160988]
 script = ExtResource("1_u24a1")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=2081387567]
 
-[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer" unique_id=1894040999]
+[node name="OuterVBox" type="VBoxContainer" parent="CanvasLayer"]
 anchor_right = 1.0
 anchor_bottom = 0.5
 theme = ExtResource("3_theme")
+theme_override_constants/separation = 4
+
+[node name="LocationBarMargin" type="MarginContainer" parent="CanvasLayer/OuterVBox"]
+layout_mode = 2
 theme_override_constants/margin_left = 16
 theme_override_constants/margin_right = 16
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_bottom = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_bottom = 0
 
-[node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/MarginContainer" unique_id=1343791926]
+[node name="LocationBarPanel" type="PanelContainer" parent="CanvasLayer/OuterVBox/LocationBarMargin"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_locationbar")
+
+[node name="LocationBar" type="HBoxContainer" parent="CanvasLayer/OuterVBox/LocationBarMargin/LocationBarPanel" unique_id=100000001]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="LeftPanel" type="PanelContainer" parent="CanvasLayer/MarginContainer/HBoxContainer"]
+[node name="LocationLabel" type="Label" parent="CanvasLayer/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar" unique_id=100000002]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Location: The Waste"
+size_flags_horizontal = 3
+
+[node name="TravelButtonsContainer" type="HBoxContainer" parent="CanvasLayer/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TravelWasteButton" type="Button" parent="CanvasLayer/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar/TravelButtonsContainer" unique_id=100000003]
+unique_name_in_owner = true
+layout_mode = 2
+text = "The Waste"
+custom_minimum_size = Vector2(100, 0)
+
+[node name="TravelShelterButton" type="Button" parent="CanvasLayer/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar/TravelButtonsContainer" unique_id=100000004]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Shelter"
+visible = false
+custom_minimum_size = Vector2(100, 0)
+
+[node name="TravelGuildHallButton" type="Button" parent="CanvasLayer/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar/TravelButtonsContainer" unique_id=100000005]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Guild Hall"
+visible = false
+custom_minimum_size = Vector2(100, 0)
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/OuterVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_bottom = 12
+
+[node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/OuterVBox/MarginContainer" unique_id=1343791926]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="LeftPanel" type="PanelContainer" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="LeftSide" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/LeftPanel" unique_id=1475836808]
+[node name="LeftSide" type="VBoxContainer" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/LeftPanel" unique_id=1475836808]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="ResourcesHeader" type="Label" parent="CanvasLayer/MarginContainer/HBoxContainer/LeftPanel/LeftSide"]
+[node name="ResourcesHeader" type="Label" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/LeftPanel/LeftSide"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "Resources"
 horizontal_alignment = 1
 
-[node name="HeaderSep" type="HSeparator" parent="CanvasLayer/MarginContainer/HBoxContainer/LeftPanel/LeftSide"]
+[node name="HeaderSep" type="HSeparator" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/LeftPanel/LeftSide"]
 layout_mode = 2
 
-[node name="MiddlePanel" type="PanelContainer" parent="CanvasLayer/MarginContainer/HBoxContainer"]
+[node name="MiddlePanel" type="PanelContainer" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="PlayerStatsPanel" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/MiddlePanel" unique_id=210374254]
+[node name="MiddleContent" type="VBoxContainer" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/MiddlePanel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PlayerStatsPanel" type="VBoxContainer" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/MiddlePanel/MiddleContent" unique_id=210374254]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 0
 theme_override_constants/separation = 6
 script = ExtResource("2_stats")
 
-[node name="HeaderLabel" type="Label" parent="CanvasLayer/MarginContainer/HBoxContainer/MiddlePanel/PlayerStatsPanel" unique_id=974718336]
+[node name="HeaderLabel" type="Label" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/MiddlePanel/MiddleContent/PlayerStatsPanel" unique_id=974718336]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "Player Stats"
 horizontal_alignment = 1
 
-[node name="HeaderSep" type="HSeparator" parent="CanvasLayer/MarginContainer/HBoxContainer/MiddlePanel/PlayerStatsPanel"]
+[node name="HeaderSep" type="HSeparator" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/MiddlePanel/MiddleContent/PlayerStatsPanel"]
 layout_mode = 2
 
-[node name="RightPanel" type="PanelContainer" parent="CanvasLayer/MarginContainer/HBoxContainer"]
+[node name="CraftingSep" type="HSeparator" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/MiddlePanel/MiddleContent"]
+layout_mode = 2
+
+[node name="CraftingPanel" type="PanelContainer" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/MiddlePanel/MiddleContent" unique_id=100000010]
+unique_name_in_owner = true
+layout_mode = 2
+visible = false
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="CraftingVBox" type="VBoxContainer" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/MiddlePanel/MiddleContent/CraftingPanel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="CraftingHeader" type="Label" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/MiddlePanel/MiddleContent/CraftingPanel/CraftingVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Crafting"
+horizontal_alignment = 1
+
+[node name="CraftingHeaderSep" type="HSeparator" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/MiddlePanel/MiddleContent/CraftingPanel/CraftingVBox"]
+layout_mode = 2
+
+[node name="CraftingList" type="VBoxContainer" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/MiddlePanel/MiddleContent/CraftingPanel/CraftingVBox" unique_id=100000011]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="RightPanel" type="PanelContainer" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="RightContent" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightPanel"]
+[node name="RightContent" type="VBoxContainer" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/RightPanel"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="ActivitiesHeader" type="Label" parent="CanvasLayer/MarginContainer/HBoxContainer/RightPanel/RightContent"]
+[node name="ActivitiesHeader" type="Label" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/RightPanel/RightContent"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "Activities"
 horizontal_alignment = 1
 
-[node name="HeaderSep" type="HSeparator" parent="CanvasLayer/MarginContainer/HBoxContainer/RightPanel/RightContent"]
+[node name="HeaderSep" type="HSeparator" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/RightPanel/RightContent"]
 layout_mode = 2
 
-[node name="Activities" type="VBoxContainer" parent="CanvasLayer/MarginContainer/HBoxContainer/RightPanel/RightContent" unique_id=230876899]
+[node name="Activities" type="VBoxContainer" parent="CanvasLayer/OuterVBox/MarginContainer/HBoxContainer/RightPanel/RightContent" unique_id=230876899]
 unique_name_in_owner = true
 layout_mode = 2
 

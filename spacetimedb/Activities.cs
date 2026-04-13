@@ -8,6 +8,8 @@ public enum ActivityType : byte
     CarbLoad,
     Study,
     Focus,
+    BuildShelter,
+    Salvage,
 }
 
 [SpacetimeDB.Type]
@@ -29,6 +31,7 @@ public static partial class Module
         public ActivityType Type;
         public List<ActivityCost> Cost;
         public ulong DurationMs;
+        public LocationType? RequiredLocation;
     }
 
     [SpacetimeDB.Table(Accessor = "ActiveTask", Public = true)]
@@ -134,17 +137,6 @@ public static partial class Module
                 break;
         }
         AddResourceToPlayer(ctx, participant, resourceType, amount);
-
-        if (ctx.Db.GuildMember.PlayerId.Find(participant) is GuildMember scavengerMember
-            && scavengerMember.InSession)
-        {
-            foreach (var member in ctx.Db.GuildMember.GuildId.Filter(scavengerMember.GuildId))
-            {
-                if (member.PlayerId == participant) continue;
-                if (!member.InSession) continue;
-                AddResourceToPlayer(ctx, member.PlayerId, resourceType, amount);
-            }
-        }
     }
 
     [SpacetimeDB.Reducer]
@@ -228,6 +220,29 @@ public static partial class Module
         ctx.Db.Activity.Id.Update(carbActivity);
     }
 
+    private static void SalvageReward(ReducerContext ctx, Identity participant) {
+        var metalAmount = (ulong)Math.Max(1, GetStat(ctx, participant, StatType.Dexterity));
+        var moneyAmount = (ulong)Math.Max(1, GetStat(ctx, participant, StatType.Wit));
+        AddResourceToPlayer(ctx, participant, ResourceType.Metal, metalAmount);
+        AddResourceToPlayer(ctx, participant, ResourceType.Money, moneyAmount);
+    }
+
+    private static void BuildShelterReward(ReducerContext ctx, Identity participant) {
+        ctx.Db.PlayerShelter.Insert(new PlayerShelter
+        {
+            Owner = participant,
+            Level = 1,
+            BuiltAt = ctx.Timestamp
+        });
+
+        var buildActivity = ctx.Db.Activity.by_activity_participant_type
+            .Filter((Participant: participant, Type: ActivityType.BuildShelter));
+        if (buildActivity.Any())
+        {
+            ctx.Db.Activity.Id.Delete(buildActivity.First().Id);
+        }
+    }
+
     [SpacetimeDB.Reducer]
     public static void ActivityOnInterval(ReducerContext ctx, Identity participant, ActivityType type, ulong interval, bool reoccuring)
     {
@@ -249,7 +264,7 @@ public static partial class Module
     }
 
     [SpacetimeDB.Reducer]
-    public static void StartActiveSchedules(ReducerContext ctx, Identity participant) {
+    public static void StartWasteSchedules(ReducerContext ctx, Identity participant) {
         ActivityOnInterval(ctx, participant, ActivityType.Scavenge, 5000, true);
         ActivityOnInterval(ctx, participant, ActivityType.LootBigWood, 20_000, true);
     }
@@ -279,8 +294,14 @@ public static partial class Module
             throw new Exception("Already doing an activity");
         }
 
+        if (ctx.Db.Player.Identity.Find(ctx.Sender) is not Player player)
+            throw new Exception("Player not found");
+
         var activity = ctx.Db.Activity.by_activity_participant_type
             .Filter((Participant: ctx.Sender, Type: type)).First();
+
+        if (!IsLocationValid(activity.RequiredLocation, player.Location))
+            throw new Exception("This activity is not available at your current location");
 
         foreach (var cost in activity.Cost) {
             var resource = ctx.Db.ResourceTracker.by_owner_and_type
@@ -338,6 +359,12 @@ public static partial class Module
             case ActivityType.Focus:
                 Focus(ctx, task.Participant);
                 UpdateActivityDuration(ctx, task.Participant, ActivityType.Focus, StatType.Perception);
+                break;
+            case ActivityType.BuildShelter:
+                BuildShelterReward(ctx, task.Participant);
+                break;
+            case ActivityType.Salvage:
+                SalvageReward(ctx, task.Participant);
                 break;
             default:
                 throw new Exception("Unknown activity type");

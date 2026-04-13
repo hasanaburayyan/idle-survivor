@@ -679,8 +679,10 @@ public partial class GameMenu : CanvasLayer
 		_inviteRow.Visible = isOfficerOrAbove;
 		_adminPanelContainer.Visible = isOfficerOrAbove;
 
-		_enterSessionButton.Visible = !membership.InSession;
-		_leaveSessionButton.Visible = membership.InSession;
+		var player = conn.Db.Player.Identity.Find(localId);
+		bool inGuildHall = player?.Location == LocationType.GuildHall;
+		_enterSessionButton.Visible = !inGuildHall;
+		_leaveSessionButton.Visible = inGuildHall;
 
 		RefreshMembersList(membership, isOfficerOrAbove);
 		RefreshJoinRequests(membership, isOfficerOrAbove);
@@ -723,7 +725,8 @@ public partial class GameMenu : CanvasLayer
 			var statusLabel = new Label();
 			if (player?.Online == true)
 			{
-				statusLabel.Text = member.InSession ? "In Hall" : "Online";
+				var memberPlayer = conn.Db.Player.Identity.Find(member.PlayerId);
+				statusLabel.Text = memberPlayer?.Location == LocationType.GuildHall ? "In Hall" : "Online";
 				statusLabel.AddThemeColorOverride("font_color", new Color(0.3f, 1f, 0.3f));
 			}
 			else
@@ -1041,10 +1044,10 @@ public partial class GameMenu : CanvasLayer
 	private void OnLeaveGuildPressed()
 	{
 		var conn = SpacetimeNetworkManager.Instance.Conn;
-		var membership = conn.Db.GuildMember.PlayerId.Find(SpacetimeNetworkManager.Instance.LocalIdentity);
-		if (membership?.InSession == true)
+		var player = conn.Db.Player.Identity.Find(SpacetimeNetworkManager.Instance.LocalIdentity);
+		if (player?.Location == LocationType.GuildHall)
 		{
-			conn.Reducers.LeaveGuildSession();
+			conn.Reducers.Travel(LocationType.Waste);
 			EmitSignal(SignalName.GuildSessionChanged, false);
 		}
 		conn.Reducers.LeaveGuild();
@@ -1054,8 +1057,8 @@ public partial class GameMenu : CanvasLayer
 	private void OnDisbandGuildPressed()
 	{
 		var conn = SpacetimeNetworkManager.Instance.Conn;
-		var membership = conn.Db.GuildMember.PlayerId.Find(SpacetimeNetworkManager.Instance.LocalIdentity);
-		if (membership?.InSession == true)
+		var player = conn.Db.Player.Identity.Find(SpacetimeNetworkManager.Instance.LocalIdentity);
+		if (player?.Location == LocationType.GuildHall)
 		{
 			EmitSignal(SignalName.GuildSessionChanged, false);
 		}
@@ -1065,14 +1068,14 @@ public partial class GameMenu : CanvasLayer
 
 	private void OnEnterSessionPressed()
 	{
-		SpacetimeNetworkManager.Instance.Conn.Reducers.EnterGuildSession();
+		SpacetimeNetworkManager.Instance.Conn.Reducers.Travel(LocationType.GuildHall);
 		EmitSignal(SignalName.GuildSessionChanged, true);
 		CallDeferred(nameof(DeferredRefreshSocial));
 	}
 
 	private void OnLeaveSessionPressed()
 	{
-		SpacetimeNetworkManager.Instance.Conn.Reducers.LeaveGuildSession();
+		SpacetimeNetworkManager.Instance.Conn.Reducers.Travel(LocationType.Waste);
 		EmitSignal(SignalName.GuildSessionChanged, false);
 		CallDeferred(nameof(DeferredRefreshSocial));
 	}

@@ -36,7 +36,6 @@ public static partial class Module
         public Identity PlayerId;
 
         public GuildRole Role;
-        public bool InSession;
         public Timestamp JoinedAt;
     }
 
@@ -114,7 +113,6 @@ public static partial class Module
             GuildId = guild.Id,
             PlayerId = ctx.Sender,
             Role = GuildRole.Owner,
-            InSession = false,
             JoinedAt = ctx.Timestamp
         });
     }
@@ -171,7 +169,6 @@ public static partial class Module
             GuildId = invite.GuildId,
             PlayerId = ctx.Sender,
             Role = GuildRole.Member,
-            InSession = false,
             JoinedAt = ctx.Timestamp
         });
 
@@ -235,7 +232,6 @@ public static partial class Module
             GuildId = senderMember.GuildId,
             PlayerId = request.RequesterId,
             Role = GuildRole.Member,
-            InSession = false,
             JoinedAt = ctx.Timestamp
         });
 
@@ -359,30 +355,6 @@ public static partial class Module
         }
 
         CleanupGuild(ctx, guildId);
-    }
-
-    [SpacetimeDB.Reducer]
-    public static void EnterGuildSession(ReducerContext ctx)
-    {
-        if (ctx.Db.GuildMember.PlayerId.Find(ctx.Sender) is not GuildMember member)
-            throw new Exception("You are not in a guild");
-
-        if (member.InSession)
-            throw new Exception("You are already in a guild session");
-
-        ctx.Db.GuildMember.Id.Update(member with { InSession = true });
-    }
-
-    [SpacetimeDB.Reducer]
-    public static void LeaveGuildSession(ReducerContext ctx)
-    {
-        if (ctx.Db.GuildMember.PlayerId.Find(ctx.Sender) is not GuildMember member)
-            throw new Exception("You are not in a guild");
-
-        if (!member.InSession)
-            throw new Exception("You are not in a guild session");
-
-        ctx.Db.GuildMember.Id.Update(member with { InSession = false });
     }
 
     private static void CleanupGuild(ReducerContext ctx, ulong guildId)

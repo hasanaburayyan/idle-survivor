@@ -48,7 +48,8 @@ public static partial class Module {
                     Participant = owner,
                     Type = ActivityType.Study,
                     Cost = new List<ActivityCost>(),
-                    DurationMs = GetEffectiveDurationMs(30000, value)
+                    DurationMs = GetEffectiveDurationMs(30000, value),
+                    RequiredLocation = null
                 });
             }
         }
@@ -61,7 +62,8 @@ public static partial class Module {
                     Participant =  owner,
                     Type = ActivityType.Focus,
                     Cost = new List<ActivityCost>(),
-                    DurationMs = GetEffectiveDurationMs(10_000, value)
+                    DurationMs = GetEffectiveDurationMs(10_000, value),
+                    RequiredLocation = null
                 });
             }
         }

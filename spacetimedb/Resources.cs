@@ -27,20 +27,17 @@ public static partial class Module {
     }
 
     private const double GuildTaxRate = 0.20;
-    private const double GuildSessionBonus = 0.10;
 
     [SpacetimeDB.Reducer]
     public static void AddResourceToPlayer(ReducerContext ctx, Identity playerId, ResourceType type, ulong amount) {
         var playerAmount = amount;
 
-        if (ctx.Db.GuildMember.PlayerId.Find(playerId) is GuildMember member && member.InSession)
+        if (ctx.Db.GuildMember.PlayerId.Find(playerId) is GuildMember member)
         {
             var taxAmount = (ulong)(amount * GuildTaxRate);
             if (taxAmount < 1 && amount > 0) taxAmount = 1;
-            var bonus = (ulong)(amount * GuildSessionBonus);
 
             AddResourceToGuild(ctx, member.GuildId, type, taxAmount);
-            playerAmount = amount + bonus;
         }
 
         var existingResources = ctx.Db.ResourceTracker.by_owner_and_type.Filter((Owner: playerId, Type: type));

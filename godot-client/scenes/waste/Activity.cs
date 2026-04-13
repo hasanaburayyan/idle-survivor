@@ -2,10 +2,16 @@ using Godot;
 using System;
 using SpacetimeDB;
 using SpacetimeDB.ClientApi;
+using SpacetimeDB.Types;
 using System.Linq;
 
 public partial class Activity : VBoxContainer
 {
+	private static bool IsLocationValid(LocationType? required, LocationType playerLoc) =>
+		required is null ||
+		required == playerLoc ||
+		(required == LocationType.Shelter && playerLoc == LocationType.GuildHall);
+
 	private Button ActivateButton;
 	private Label CostLabel;
 	private Label DurationLabel;
@@ -160,13 +166,29 @@ public partial class Activity : VBoxContainer
 		ProgressBar.Visible = false;
 		ProgressBar.Value = 0;
 
-		var activity = SpacetimeNetworkManager.Instance.Conn.Db.Activity.Id.Find(trackingId);
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var activity = conn.Db.Activity.Id.Find(trackingId);
 		if (_autoRepeatArmed
 			&& ReferenceEquals(s_autoRepeatActivity, this)
 			&& finishedTask.Type == activity.Type)
 		{
-			RequestStartActivity();
+			var player = conn.Db.Player.Identity.Find(SpacetimeNetworkManager.Instance.LocalIdentity);
+			if (player is not null && IsLocationValid(activity.RequiredLocation, player.Location))
+			{
+				RequestStartActivity();
+			}
 		}
+	}
+
+	public void TryResumeAutoRepeat()
+	{
+		if (!_autoRepeatArmed || !ReferenceEquals(s_autoRepeatActivity, this) || currentTask != null)
+			return;
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var activity = conn.Db.Activity.Id.Find(trackingId);
+		var player = conn.Db.Player.Identity.Find(SpacetimeNetworkManager.Instance.LocalIdentity);
+		if (activity is not null && player is not null && IsLocationValid(activity.RequiredLocation, player.Location))
+			RequestStartActivity();
 	}
 
 	private void RefreshFormat()
