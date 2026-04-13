@@ -32,6 +32,8 @@ public partial class Player : CharacterBody2D
 	public Label ActivityLabel;
 	private AnimatedSprite2D _sprite;
 	private Identity? _activityIdentity;
+	private bool _activityLabelShown;
+	private string _activityLabelText = "";
 	private AnimState _state = AnimState.Moving;
 	private Vector2 _moveDir = Vector2.Right;
 	private float _stateTimer;
@@ -62,46 +64,67 @@ public partial class Player : CharacterBody2D
 		if (conn is null)
 			return;
 		_activityIdentity = playerId;
-		conn.Db.ActiveTask.OnInsert += OnActiveTaskTableChanged;
-		conn.Db.ActiveTask.OnDelete += OnActiveTaskTableChanged;
-		RefreshActivityLabel();
+		conn.Db.ActiveTask.OnInsert += OnActiveTaskInserted;
+		conn.Db.ActiveTask.OnDelete += OnActiveTaskDeleted;
+
+		var existing = conn.Db.ActiveTask.Participant.Find(playerId);
+		if (existing is null)
+			ClearActivityLabel();
+		else
+			SetActivityLabel(FormatActivityLine(existing.Type));
 	}
 
 	private void UnbindActivityDisplay()
 	{
 		if (!_activityIdentity.HasValue)
 			return;
+
 		var conn = SpacetimeNetworkManager.Instance?.Conn;
 		if (conn is not null)
 		{
-			conn.Db.ActiveTask.OnInsert -= OnActiveTaskTableChanged;
-			conn.Db.ActiveTask.OnDelete -= OnActiveTaskTableChanged;
+			conn.Db.ActiveTask.OnInsert -= OnActiveTaskInserted;
+			conn.Db.ActiveTask.OnDelete -= OnActiveTaskDeleted;
 		}
 		_activityIdentity = null;
+		_activityLabelShown = false;
+		_activityLabelText = "";
+		if (ActivityLabel is not null)
+			ActivityLabel.Visible = false;
 	}
 
-	private void OnActiveTaskTableChanged(EventContext ctx, ActiveTask row)
+	private void OnActiveTaskInserted(EventContext ctx, ActiveTask row)
 	{
 		if (!_activityIdentity.HasValue || row.Participant != _activityIdentity.Value)
 			return;
-		RefreshActivityLabel();
+		SetActivityLabel(FormatActivityLine(row.Type));
 	}
 
-	private void RefreshActivityLabel()
+	private void OnActiveTaskDeleted(EventContext ctx, ActiveTask row)
 	{
-		if (ActivityLabel is null || !_activityIdentity.HasValue)
+		if (!_activityIdentity.HasValue || row.Participant != _activityIdentity.Value)
 			return;
-		var conn = SpacetimeNetworkManager.Instance?.Conn;
-		if (conn is null)
+		ClearActivityLabel();
+	}
+
+	private void SetActivityLabel(string text)
+	{
+		if (ActivityLabel is null)
 			return;
-		var task = conn.Db.ActiveTask.Participant.Find(_activityIdentity.Value);
-		if (task is null)
-		{
-			ActivityLabel.Visible = false;
+		if (_activityLabelShown && _activityLabelText == text)
 			return;
-		}
+		ActivityLabel.Text = text;
 		ActivityLabel.Visible = true;
-		ActivityLabel.Text = FormatActivityLine(task.Type);
+		_activityLabelText = text;
+		_activityLabelShown = true;
+	}
+
+	private void ClearActivityLabel()
+	{
+		if (ActivityLabel is null || !_activityLabelShown)
+			return;
+		ActivityLabel.Visible = false;
+		_activityLabelShown = false;
+		_activityLabelText = "";
 	}
 
 	private static string FormatActivityLine(ActivityType type) => type switch
