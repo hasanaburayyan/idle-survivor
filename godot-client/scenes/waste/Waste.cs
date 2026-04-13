@@ -34,6 +34,15 @@ public partial class Waste : Node2D
 	private PanelContainer _craftingPanel;
 	private VBoxContainer _craftingList;
 
+	private struct CraftingProgress
+	{
+		public ProgressBar Bar;
+		public ulong LocalStartUsec;
+		public double InitialPercent;
+		public ulong RemainingUsec;
+	}
+	private readonly Dictionary<ActivityType, CraftingProgress> _craftingProgressBars = new();
+
 	private Dictionary<ulong, Activity> _activityNodes = new();
 
 	private ColorRect _popupBackdrop;
@@ -127,6 +136,7 @@ public partial class Waste : Node2D
 		conn.Db.PlayerStat.OnUpdate += OnLocalPlayerStatUpdate;
 		conn.Db.Activity.OnInsert += OnActivityInsert;
 		conn.Db.Activity.OnDelete += OnActivityDelete;
+		conn.Db.ActiveTask.OnInsert += OnActiveTaskInsert;
 		conn.Db.ActiveTask.OnDelete += OnActiveTaskDelete;
 
 		_guildSocialPanel.GuildSessionChanged += OnGuildSessionChanged;
@@ -146,6 +156,19 @@ public partial class Waste : Node2D
 		_relevantStatsTitle = GetNode<Label>("%RelevantStatsTitle");
 		BuildCraftingPanel();
 		RefreshLocationUI();
+	}
+
+	public override void _Process(double delta)
+	{
+		foreach (var (type, cp) in _craftingProgressBars)
+		{
+			if (!IsInstanceValid(cp.Bar)) continue;
+			if (cp.InitialPercent >= 100.0) { cp.Bar.Value = 100; continue; }
+			var elapsed = Time.GetTicksUsec() - cp.LocalStartUsec;
+			var span = 100.0 - cp.InitialPercent;
+			var pct = elapsed / (double)cp.RemainingUsec * span;
+			cp.Bar.Value = Math.Clamp(cp.InitialPercent + pct, 0.0, 100.0);
+		}
 	}
 
 	public override void _Input(InputEvent @event)
@@ -483,12 +506,12 @@ public partial class Waste : Node2D
 
 			var nameLabel = new Label();
 			nameLabel.Text = rt.ToString();
-			nameLabel.AddThemeFontSizeOverride("font_size", 14);
+			nameLabel.AddThemeFontSizeOverride("font_size", 20);
 
 			var amountLabel = new Label();
 			amountLabel.Text = GetResourceAmount(conn, localId, rt).ToString();
 			amountLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.4f));
-			amountLabel.AddThemeFontSizeOverride("font_size", 14);
+			amountLabel.AddThemeFontSizeOverride("font_size", 20);
 
 			row.AddChild(nameLabel);
 			row.AddChild(amountLabel);
@@ -502,12 +525,12 @@ public partial class Waste : Node2D
 
 			var nameLabel = new Label();
 			nameLabel.Text = st.ToString();
-			nameLabel.AddThemeFontSizeOverride("font_size", 14);
+			nameLabel.AddThemeFontSizeOverride("font_size", 20);
 
 			var valueLabel = new Label();
 			valueLabel.Text = GetStatValue(conn, localId, st).ToString();
 			valueLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.4f));
-			valueLabel.AddThemeFontSizeOverride("font_size", 14);
+			valueLabel.AddThemeFontSizeOverride("font_size", 20);
 
 			row.AddChild(nameLabel);
 			row.AddChild(valueLabel);
@@ -636,10 +659,110 @@ public partial class Waste : Node2D
 			_craftingList.AddChild(row);
 		}
 
+		var activeTask = conn.Db.ActiveTask.Participant.Find(localId);
+		_craftingProgressBars.Clear();
+
+		foreach (var activity in conn.Db.Activity.Participant.Filter(localId))
+		{
+			if (!Activity.IsCraftableActivityType(activity.Type))
+				continue;
+
+			var outer = new VBoxContainer();
+			outer.AddThemeConstantOverride("separation", 4);
+
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+
+			var nameLabel = new Label();
+			nameLabel.Text = Activity.GetActivityDisplayName(activity.Type);
+			nameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+			row.AddChild(nameLabel);
+
+			var costLabel = new Label();
+			costLabel.Text = string.Join(", ", activity.Cost.Select(c => $"{c.Amount} {c.Type}"));
+			costLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
+			row.AddChild(costLabel);
+
+			var effectiveMs = Activity.GetEffectiveDurationMs(activity, conn, localId);
+			var durationSec = effectiveMs / 1000.0;
+			var durationLabel = new Label();
+			durationLabel.Text = durationSec >= 1.0 ? $"{durationSec:F0}s" : $"{durationSec:F1}s";
+			durationLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
+			row.AddChild(durationLabel);
+
+			bool isBuilding = activeTask is not null && activeTask.Type == activity.Type;
+			if (isBuilding)
+			{
+				row.AddChild(new Label
+				{
+					Text = "Building...",
+					Modulate = new Color(1f, 0.85f, 0.3f)
+				});
+			}
+			else
+			{
+				var buildBtn = new Button();
+				buildBtn.Text = "Build";
+				buildBtn.CustomMinimumSize = new Vector2(80, 28);
+				var capturedType = activity.Type;
+				buildBtn.Pressed += () => conn.Reducers.StartActivity(capturedType);
+				row.AddChild(buildBtn);
+			}
+
+			outer.AddChild(row);
+
+			if (isBuilding)
+			{
+				var fillStyle = new StyleBoxFlat();
+				fillStyle.BgColor = new Color(0.3f, 0.75f, 0.35f);
+				fillStyle.SetCornerRadiusAll(3);
+
+				var bgStyle = new StyleBoxFlat();
+				bgStyle.BgColor = new Color(0.15f, 0.15f, 0.18f);
+				bgStyle.SetCornerRadiusAll(3);
+
+				var progressBar = new ProgressBar();
+				progressBar.MinValue = 0;
+				progressBar.MaxValue = 100;
+				progressBar.ShowPercentage = false;
+				progressBar.CustomMinimumSize = new Vector2(0, 12);
+				progressBar.AddThemeStyleboxOverride("fill", fillStyle);
+				progressBar.AddThemeStyleboxOverride("background", bgStyle);
+
+				var startUs = (long)activeTask.StartedAt.MicrosecondsSinceUnixEpoch;
+				var endUs = (long)activeTask.CompletesAt.MicrosecondsSinceUnixEpoch;
+				var totalUs = endUs - startUs;
+
+				if (totalUs > 0)
+				{
+					var wallNowUs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1000L;
+					var alreadyUs = Math.Max(0L, Math.Min(wallNowUs - startUs, totalUs));
+					var initialPct = alreadyUs / (double)totalUs * 100.0;
+					progressBar.Value = Math.Clamp(initialPct, 0.0, 100.0);
+
+					_craftingProgressBars[activity.Type] = new CraftingProgress
+					{
+						Bar = progressBar,
+						LocalStartUsec = Time.GetTicksUsec(),
+						InitialPercent = initialPct,
+						RemainingUsec = (ulong)Math.Max(1, totalUs - alreadyUs)
+					};
+				}
+				else
+				{
+					progressBar.Value = 100;
+				}
+
+				outer.AddChild(progressBar);
+			}
+
+			_craftingList.AddChild(outer);
+		}
+
 		if (_craftingList.GetChildCount() == 0)
 		{
 			var empty = new Label();
-			empty.Text = "No structures available";
+			empty.Text = "Nothing to craft";
 			empty.HorizontalAlignment = HorizontalAlignment.Center;
 			empty.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
 			_craftingList.AddChild(empty);
@@ -778,6 +901,15 @@ public partial class Waste : Node2D
 		RefreshRelevantLocationContext();
 	}
 
+	private void OnActiveTaskInsert(EventContext ctx, SpacetimeDB.Types.ActiveTask task)
+	{
+		if (task.Participant != SpacetimeNetworkManager.Instance.LocalIdentity)
+			return;
+
+		if (Activity.IsCraftableActivityType(task.Type))
+			RefreshCraftingMenu();
+	}
+
 	private void OnActiveTaskDelete(EventContext ctx, SpacetimeDB.Types.ActiveTask task)
 	{
 		if (task.Participant != SpacetimeNetworkManager.Instance.LocalIdentity)
@@ -793,6 +925,9 @@ public partial class Waste : Node2D
 
 		AddActivityNode(activity);
 		RefreshRelevantLocationContext();
+
+		if (Activity.IsCraftableActivityType(activity.Type))
+			RefreshCraftingMenu();
 	}
 
 	private void OnActivityDelete(EventContext ctx, SpacetimeDB.Types.Activity activity)
@@ -806,5 +941,8 @@ public partial class Waste : Node2D
 			_activityNodes.Remove(activity.Id);
 		}
 		RefreshRelevantLocationContext();
+
+		if (Activity.IsCraftableActivityType(activity.Type))
+			RefreshCraftingMenu();
 	}
 }

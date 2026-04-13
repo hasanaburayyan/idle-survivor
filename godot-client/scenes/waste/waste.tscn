@@ -131,7 +131,7 @@ theme_override_constants/separation = 4
 [node name="RelevantResourcesTitle" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 20
 theme_override_colors/font_color = Color(0.65, 0.65, 0.7, 1)
 text = "Resources here"
 horizontal_alignment = 1
@@ -145,7 +145,7 @@ theme_override_constants/v_separation = 4
 [node name="RelevantStatsTitle" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 20
 theme_override_colors/font_color = Color(0.65, 0.65, 0.7, 1)
 text = "Stats here"
 horizontal_alignment = 1
@@ -274,7 +274,7 @@ text = "Character"
 unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(120, 36)
-text = "Inventory"
+text = "Crafting"
 
 [node name="SocialMenuButton" type="Button" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel/BottomMenuBar"]
 unique_name_in_owner = true
