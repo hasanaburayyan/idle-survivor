@@ -83,6 +83,7 @@ public static partial class Module
                 new ActivityCost { Type = ResourceType.Parts, Amount = 30 }
             }
         });
+
     }
 
     [SpacetimeDB.Reducer]
@@ -179,10 +180,59 @@ public static partial class Module
                             new ActivityCost { Type = ResourceType.Parts, Amount = 10 }
                         },
                         DurationMs = 3000,
-                        RequiredLocation = LocationType.Shelter
+                        RequiredLocation = LocationType.Shelter,
+                        UnlockCriteria = [],
+                        Level = 1
                     });
                 }
                 break;
         }
+
     }
+
+    private static readonly (ActivityType BuildType, ActivityType TrainType, List<ActivityCost> Cost)[] TrainingStructures =
+    [
+        (ActivityType.BuildDumbbells, ActivityType.TrainStrength, [new ActivityCost { Type = ResourceType.Metal, Amount = 40 }, new ActivityCost { Type = ResourceType.Parts, Amount = 20 }]),
+        (ActivityType.BuildBookshelf, ActivityType.Study, [new ActivityCost { Type = ResourceType.Wood, Amount = 30 }, new ActivityCost { Type = ResourceType.Fabric, Amount = 30 }]),
+        (ActivityType.BuildDartBoard, ActivityType.Focus, [new ActivityCost { Type = ResourceType.Wood, Amount = 25 }, new ActivityCost { Type = ResourceType.Metal, Amount = 25 }]),
+        (ActivityType.BuildMeditationNook, ActivityType.TrainWit, [new ActivityCost { Type = ResourceType.Fabric, Amount = 35 }, new ActivityCost { Type = ResourceType.Wood, Amount = 25 }]),
+        (ActivityType.BuildStairStepper, ActivityType.TrainEndurance, [new ActivityCost { Type = ResourceType.Metal, Amount = 40 }, new ActivityCost { Type = ResourceType.Wood, Amount = 20 }]),
+        (ActivityType.BuildPingPongTable, ActivityType.TrainDexterity, [new ActivityCost { Type = ResourceType.Parts, Amount = 30 }, new ActivityCost { Type = ResourceType.Wood, Amount = 30 }]),
+    ];
+
+    public static void InsertBuildStructureActivities(ReducerContext ctx, Identity participant)
+    {
+        foreach (var (buildType, trainType, cost) in TrainingStructures)
+        {
+            if (ctx.Db.Activity.by_activity_participant_type
+                .Filter((Participant: participant, Type: buildType)).Any())
+                continue;
+
+            if (ctx.Db.Activity.by_activity_participant_type
+                .Filter((Participant: participant, Type: trainType)).Any())
+                continue;
+
+            ctx.Db.Activity.Insert(new Activity
+            {
+                Participant = participant,
+                Type = buildType,
+                Cost = cost,
+                DurationMs = 10_000,
+                RequiredLocation = LocationType.Shelter,
+                UnlockCriteria = [],
+                Level = 1
+            });
+        }
+    }
+
+    public static ActivityType? BuildTypeToTrainType(ActivityType buildType) => buildType switch
+    {
+        ActivityType.BuildDumbbells => ActivityType.TrainStrength,
+        ActivityType.BuildBookshelf => ActivityType.Study,
+        ActivityType.BuildDartBoard => ActivityType.Focus,
+        ActivityType.BuildMeditationNook => ActivityType.TrainWit,
+        ActivityType.BuildStairStepper => ActivityType.TrainEndurance,
+        ActivityType.BuildPingPongTable => ActivityType.TrainDexterity,
+        _ => null
+    };
 }

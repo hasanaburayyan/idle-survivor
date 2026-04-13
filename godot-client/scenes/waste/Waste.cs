@@ -127,6 +127,7 @@ public partial class Waste : Node2D
 		conn.Db.PlayerStat.OnUpdate += OnLocalPlayerStatUpdate;
 		conn.Db.Activity.OnInsert += OnActivityInsert;
 		conn.Db.Activity.OnDelete += OnActivityDelete;
+		conn.Db.ActiveTask.OnDelete += OnActiveTaskDelete;
 
 		_guildSocialPanel.GuildSessionChanged += OnGuildSessionChanged;
 
@@ -335,8 +336,44 @@ public partial class Waste : Node2D
 				set.Add(StatType.Dexterity);
 				set.Add(StatType.Wit);
 				break;
+			case ActivityType.SearchFood:
+				set.Add(StatType.Perception);
+				break;
+			case ActivityType.SearchFabric:
+				set.Add(StatType.Intelligence);
+				break;
+			case ActivityType.SearchMetal:
+				set.Add(StatType.Strength);
+				break;
+			case ActivityType.SearchMoney:
+				set.Add(StatType.Wit);
+				break;
+			case ActivityType.SearchParts:
+				set.Add(StatType.Dexterity);
+				break;
+			case ActivityType.SearchWood:
+				set.Add(StatType.Endurance);
+				break;
+			case ActivityType.TrainStrength:
+				set.Add(StatType.Strength);
+				break;
+			case ActivityType.TrainWit:
+				set.Add(StatType.Wit);
+				break;
+			case ActivityType.TrainEndurance:
+				set.Add(StatType.Endurance);
+				break;
+			case ActivityType.TrainDexterity:
+				set.Add(StatType.Dexterity);
+				break;
 			case ActivityType.LootBigWood:
 			case ActivityType.BuildShelter:
+			case ActivityType.BuildDumbbells:
+			case ActivityType.BuildBookshelf:
+			case ActivityType.BuildDartBoard:
+			case ActivityType.BuildMeditationNook:
+			case ActivityType.BuildStairStepper:
+			case ActivityType.BuildPingPongTable:
 				break;
 		}
 	}
@@ -521,24 +558,23 @@ public partial class Waste : Node2D
 		if (isShelterLoc)
 			RefreshCraftingMenu();
 
-		RefreshActivityVisibility(loc);
+		RefreshActivityVisibility();
 		RefreshRelevantLocationContext();
 	}
 
-	private void RefreshActivityVisibility(LocationType loc)
+	private void RefreshActivityVisibility()
 	{
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		foreach (var (id, node) in _activityNodes)
 		{
-			var activity = conn.Db.Activity.Id.Find(id);
-			if (activity is not null)
+			if (conn.Db.Activity.Id.Find(id) is null)
+				node.Visible = false;
+			else
 			{
-				node.Visible = IsLocationValid(activity.RequiredLocation, loc);
+				node.RefreshFormat();
 				if (node.Visible)
 					node.TryResumeAutoRepeat();
 			}
-			else
-				node.Visible = false;
 		}
 	}
 
@@ -550,10 +586,7 @@ public partial class Waste : Node2D
 		activitySelection.InitActivityTracking(activity.Id);
 		_activityNodes[activity.Id] = activitySelection;
 
-		var conn = SpacetimeNetworkManager.Instance.Conn;
-		var currentPlayer = conn.Db.Player.Identity.Find(SpacetimeNetworkManager.Instance.LocalIdentity);
-		if (currentPlayer is not null)
-			activitySelection.Visible = IsLocationValid(activity.RequiredLocation, currentPlayer.Location);
+		// Visibility (location + unlock criteria) is applied in Activity.Format via InitActivityTracking.
 	}
 
 	private void RefreshCraftingMenu()
@@ -743,6 +776,14 @@ public partial class Waste : Node2D
 		_leftSide.AddChild(resourceTracker);
 		resourceTracker.InitResourceTracking(tracker.Id);
 		RefreshRelevantLocationContext();
+	}
+
+	private void OnActiveTaskDelete(EventContext ctx, SpacetimeDB.Types.ActiveTask task)
+	{
+		if (task.Participant != SpacetimeNetworkManager.Instance.LocalIdentity)
+			return;
+
+		RefreshLocationUI();
 	}
 
 	private void OnActivityInsert(EventContext ctx, SpacetimeDB.Types.Activity activity)
