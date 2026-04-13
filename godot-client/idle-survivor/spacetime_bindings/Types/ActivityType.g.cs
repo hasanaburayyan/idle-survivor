@@ -27,5 +27,11 @@ namespace SpacetimeDB.Types
         TrainWit,
         TrainEndurance,
         TrainDexterity,
+        BuildDumbbells,
+        BuildBookshelf,
+        BuildDartBoard,
+        BuildMeditationNook,
+        BuildStairStepper,
+        BuildPingPongTable,
     }
 }

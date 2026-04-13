@@ -28,6 +28,8 @@ public partial class Activity : VBoxContainer
 
 	private bool _autoRepeatArmed;
 
+	private SpacetimeDB.Identity _trackedIdentity;
+
 	/// <summary>Client-side progress fill for the matching activity only; not driven by per-frame DB reads.</summary>
 	private bool _progressAnimating;
 	private ulong _progressLocalStartUsec;
@@ -62,16 +64,19 @@ public partial class Activity : VBoxContainer
 			s_autoRepeatActivity = null;
 		}
 
-		var connForReducers = SpacetimeNetworkManager.Instance?.Conn;
-		if (connForReducers != null)
+		var conn = SpacetimeNetworkManager.Instance?.Conn;
+		if (conn != null)
 		{
-			connForReducers.Reducers.OnStartActivity -= OnStartActivityReducer;
-			connForReducers.Reducers.OnUpgradeActivity -= OnUpgradeActivityReducer;
+			conn.Reducers.OnStartActivity -= OnStartActivityReducer;
+			conn.Reducers.OnUpgradeActivity -= OnUpgradeActivityReducer;
+
+			conn.Db.Activity.OnUpdate -= OnTrackedActivityUpdate;
+			conn.Db.ActiveTask.OnInsert -= OnTrackedActiveTaskInsert;
+			conn.Db.ActiveTask.OnDelete -= OnTrackedActiveTaskDelete;
 		}
 
 		if (_playerStatHandlersRegistered)
 		{
-			var conn = SpacetimeNetworkManager.Instance?.Conn;
 			if (conn != null)
 			{
 				conn.Db.PlayerStat.OnInsert -= OnLocalPlayerStatInsert;
@@ -82,7 +87,6 @@ public partial class Activity : VBoxContainer
 
 		if (_resourceHandlersRegistered)
 		{
-			var conn = SpacetimeNetworkManager.Instance?.Conn;
 			if (conn != null)
 			{
 				conn.Db.ResourceTracker.OnInsert -= OnLocalResourceTrackerChange;
@@ -108,13 +112,10 @@ public partial class Activity : VBoxContainer
 		var activity = conn.Db.Activity.Id.Find(id);
 		Format(activity);
 
-		conn.Db.Activity.OnUpdate += (SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.Activity oldActivity, SpacetimeDB.Types.Activity newActivity) =>
-		{
-			if (newActivity.Id != trackingId) return;
-			Format(newActivity);
-		};
+		_trackedIdentity = SpacetimeNetworkManager.Instance.LocalIdentity;
 
-		var identity = SpacetimeNetworkManager.Instance.LocalIdentity;
+		conn.Db.Activity.OnUpdate += OnTrackedActivityUpdate;
+
 		conn.Db.PlayerStat.OnInsert += OnLocalPlayerStatInsert;
 		conn.Db.PlayerStat.OnUpdate += OnLocalPlayerStatUpdate;
 		_playerStatHandlersRegistered = true;
@@ -123,23 +124,32 @@ public partial class Activity : VBoxContainer
 		conn.Db.ResourceTracker.OnUpdate += OnLocalResourceTrackerChangeUpdate;
 		_resourceHandlersRegistered = true;
 
-		var existingTask = conn.Db.ActiveTask.Participant.Find(identity);
+		var existingTask = conn.Db.ActiveTask.Participant.Find(_trackedIdentity);
 		if (existingTask is SpacetimeDB.Types.ActiveTask task)
 		{
 			OnActiveTaskStarted(task);
 		}
 
-		conn.Db.ActiveTask.OnInsert += (SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.ActiveTask task) =>
-		{
-			if (task.Participant != identity) return;
-			OnActiveTaskStarted(task);
-		};
+		conn.Db.ActiveTask.OnInsert += OnTrackedActiveTaskInsert;
+		conn.Db.ActiveTask.OnDelete += OnTrackedActiveTaskDelete;
+	}
 
-		conn.Db.ActiveTask.OnDelete += (SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.ActiveTask task) =>
-		{
-			if (task.Participant != identity) return;
-			OnActiveTaskFinished(task);
-		};
+	private void OnTrackedActivityUpdate(SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.Activity oldActivity, SpacetimeDB.Types.Activity newActivity)
+	{
+		if (newActivity.Id != trackingId) return;
+		Format(newActivity);
+	}
+
+	private void OnTrackedActiveTaskInsert(SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.ActiveTask task)
+	{
+		if (task.Participant != _trackedIdentity) return;
+		OnActiveTaskStarted(task);
+	}
+
+	private void OnTrackedActiveTaskDelete(SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.ActiveTask task)
+	{
+		if (task.Participant != _trackedIdentity) return;
+		OnActiveTaskFinished(task);
 	}
 
 	private void OnLocalPlayerStatInsert(SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.PlayerStat row)
@@ -246,7 +256,7 @@ public partial class Activity : VBoxContainer
 
 		RefreshFormat();
 
-		if (task.Type != activity.Type)
+		if (activity is null || task.Type != activity.Type)
 		{
 			_progressAnimating = false;
 			ProgressBar.Value = 0;
@@ -283,6 +293,9 @@ public partial class Activity : VBoxContainer
 
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		var activity = conn.Db.Activity.Id.Find(trackingId);
+		if (activity is null)
+			return;
+
 		if (_autoRepeatArmed
 			&& ReferenceEquals(s_autoRepeatActivity, this)
 			&& finishedTask.Type == activity.Type)
@@ -329,7 +342,7 @@ public partial class Activity : VBoxContainer
 			return;
 
 		var activity = SpacetimeNetworkManager.Instance.Conn.Db.Activity.Id.Find(trackingId);
-		if (task.Type != activity.Type)
+		if (activity is null || task.Type != activity.Type)
 			return;
 
 		if (_progressInitialPercent >= 100.0)
@@ -344,8 +357,17 @@ public partial class Activity : VBoxContainer
 		ProgressBar.Value = Math.Clamp(_progressInitialPercent + deltaP, 0.0, 100.0);
 	}
 
-	private static bool ActivityTypeSupportsUpgrade(ActivityType type) =>
-		type != ActivityType.BuildShelter;
+	private static bool ActivityTypeSupportsUpgrade(ActivityType type) => type switch
+	{
+		ActivityType.BuildShelter => false,
+		ActivityType.BuildDumbbells => false,
+		ActivityType.BuildBookshelf => false,
+		ActivityType.BuildDartBoard => false,
+		ActivityType.BuildMeditationNook => false,
+		ActivityType.BuildStairStepper => false,
+		ActivityType.BuildPingPongTable => false,
+		_ => true
+	};
 
 	/// <summary>Must match spacetimedb/Activities.cs ScaledUpgradeCost.</summary>
 	private static ulong ScaledUpgradeCostPreview(ulong baseAmount, uint level) =>
@@ -455,6 +477,12 @@ public partial class Activity : VBoxContainer
 		ActivityType.TrainWit => "Train Wit",
 		ActivityType.TrainEndurance => "Train Endurance",
 		ActivityType.TrainDexterity => "Train Dexterity",
+		ActivityType.BuildDumbbells => "Build Dumbbells",
+		ActivityType.BuildBookshelf => "Build Bookshelf",
+		ActivityType.BuildDartBoard => "Build Dart Board",
+		ActivityType.BuildMeditationNook => "Build Meditation Nook",
+		ActivityType.BuildStairStepper => "Build Stair Stepper",
+		ActivityType.BuildPingPongTable => "Build Ping Pong Table",
 		_ => type.ToString()
 	};
 

@@ -20,6 +20,12 @@ public enum ActivityType : byte
     TrainWit,
     TrainEndurance,
     TrainDexterity,
+    BuildDumbbells,
+    BuildBookshelf,
+    BuildDartBoard,
+    BuildMeditationNook,
+    BuildStairStepper,
+    BuildPingPongTable,
 }
 
 [SpacetimeDB.Type]
@@ -204,7 +210,7 @@ public static partial class Module
     [SpacetimeDB.Reducer]
     public static void UpgradeActivity(ReducerContext ctx, ActivityType type)
     {
-        if (type == ActivityType.BuildShelter)
+        if (type == ActivityType.BuildShelter || BuildTypeToTrainType(type) is not null)
             throw new Exception("This activity cannot be upgraded");
 
         if (ctx.Db.Player.Identity.Find(ctx.Sender) is not Player player)
@@ -474,6 +480,32 @@ public static partial class Module
         {
             ctx.Db.Activity.Id.Delete(buildActivity.First().Id);
         }
+
+        InsertBuildStructureActivities(ctx, participant);
+    }
+
+    private static void BuildStructureActivityReward(ReducerContext ctx, Identity participant, ActivityType buildType)
+    {
+        if (BuildTypeToTrainType(buildType) is ActivityType trainType
+            && !ctx.Db.Activity.by_activity_participant_type
+                .Filter((Participant: participant, Type: trainType)).Any())
+        {
+            ctx.Db.Activity.Insert(new Activity
+            {
+                Participant = participant,
+                Type = trainType,
+                Cost = [],
+                DurationMs = 5000,
+                RequiredLocation = LocationType.Shelter,
+                UnlockCriteria = [],
+                Level = 1
+            });
+        }
+
+        var build = ctx.Db.Activity.by_activity_participant_type
+            .Filter((Participant: participant, Type: buildType));
+        if (build.Any())
+            ctx.Db.Activity.Id.Delete(build.First().Id);
     }
 
     [SpacetimeDB.Reducer]
@@ -644,6 +676,14 @@ public static partial class Module
             case ActivityType.TrainDexterity:
                 TrainDexterityReward(ctx, task.Participant);
                 UpdateActivityDuration(ctx, task.Participant, ActivityType.TrainDexterity, StatType.Dexterity);
+                break;
+            case ActivityType.BuildDumbbells:
+            case ActivityType.BuildBookshelf:
+            case ActivityType.BuildDartBoard:
+            case ActivityType.BuildMeditationNook:
+            case ActivityType.BuildStairStepper:
+            case ActivityType.BuildPingPongTable:
+                BuildStructureActivityReward(ctx, task.Participant, task.Type);
                 break;
             default:
                 throw new Exception("Unknown activity type");

@@ -20,6 +20,9 @@ public static partial class Module
         EnsureLootBigWoodActivity(ctx, player.Identity);
         EnsureSearchActivities(ctx, player.Identity);
         EnsureActivityLevels(ctx, player.Identity);
+
+        if (ctx.Db.PlayerShelter.Owner.Find(player.Identity) is not null)
+            InsertBuildStructureActivities(ctx, player.Identity);
     }
 
     [SpacetimeDB.Reducer(ReducerKind.ClientDisconnected)]

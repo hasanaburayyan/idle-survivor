@@ -146,6 +146,12 @@ public partial class Player : CharacterBody2D
 		ActivityType.TrainWit => "Training wit...",
 		ActivityType.TrainEndurance => "Training endurance...",
 		ActivityType.TrainDexterity => "Training dexterity...",
+		ActivityType.BuildDumbbells => "Building dumbbells...",
+		ActivityType.BuildBookshelf => "Building bookshelf...",
+		ActivityType.BuildDartBoard => "Building dart board...",
+		ActivityType.BuildMeditationNook => "Building meditation nook...",
+		ActivityType.BuildStairStepper => "Building stair stepper...",
+		ActivityType.BuildPingPongTable => "Building ping pong table...",
 		_ => $"{type}..."
 	};
 

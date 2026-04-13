@@ -127,6 +127,7 @@ public partial class Waste : Node2D
 		conn.Db.PlayerStat.OnUpdate += OnLocalPlayerStatUpdate;
 		conn.Db.Activity.OnInsert += OnActivityInsert;
 		conn.Db.Activity.OnDelete += OnActivityDelete;
+		conn.Db.ActiveTask.OnDelete += OnActiveTaskDelete;
 
 		_guildSocialPanel.GuildSessionChanged += OnGuildSessionChanged;
 
@@ -367,6 +368,12 @@ public partial class Waste : Node2D
 				break;
 			case ActivityType.LootBigWood:
 			case ActivityType.BuildShelter:
+			case ActivityType.BuildDumbbells:
+			case ActivityType.BuildBookshelf:
+			case ActivityType.BuildDartBoard:
+			case ActivityType.BuildMeditationNook:
+			case ActivityType.BuildStairStepper:
+			case ActivityType.BuildPingPongTable:
 				break;
 		}
 	}
@@ -769,6 +776,14 @@ public partial class Waste : Node2D
 		_leftSide.AddChild(resourceTracker);
 		resourceTracker.InitResourceTracking(tracker.Id);
 		RefreshRelevantLocationContext();
+	}
+
+	private void OnActiveTaskDelete(EventContext ctx, SpacetimeDB.Types.ActiveTask task)
+	{
+		if (task.Participant != SpacetimeNetworkManager.Instance.LocalIdentity)
+			return;
+
+		RefreshLocationUI();
 	}
 
 	private void OnActivityInsert(EventContext ctx, SpacetimeDB.Types.Activity activity)
