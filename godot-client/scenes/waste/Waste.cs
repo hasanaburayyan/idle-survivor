@@ -353,6 +353,18 @@ public partial class Waste : Node2D
 			case ActivityType.SearchWood:
 				set.Add(StatType.Endurance);
 				break;
+			case ActivityType.TrainStrength:
+				set.Add(StatType.Strength);
+				break;
+			case ActivityType.TrainWit:
+				set.Add(StatType.Wit);
+				break;
+			case ActivityType.TrainEndurance:
+				set.Add(StatType.Endurance);
+				break;
+			case ActivityType.TrainDexterity:
+				set.Add(StatType.Dexterity);
+				break;
 			case ActivityType.LootBigWood:
 			case ActivityType.BuildShelter:
 				break;

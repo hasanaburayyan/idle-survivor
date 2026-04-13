@@ -40,37 +40,6 @@ public static partial class Module {
             });
         }
 
-        if (stat == StatType.Intelligence && value >= 5) {
-            var hasStudy = ctx.Db.Activity.by_activity_participant_type
-                .Filter((Participant: owner, Type: ActivityType.Study)).Any();
-            if (!hasStudy) {
-                ctx.Db.Activity.Insert(new Activity {
-                    Participant = owner,
-                    Type = ActivityType.Study,
-                    Cost = new List<ActivityCost>(),
-                    DurationMs = GetEffectiveDurationMs(30000, value),
-                    RequiredLocation = null,
-                    UnlockCriteria = [],
-                    Level = 1
-                });
-            }
-        }
-
-        if (stat == StatType.Perception && value >= 5) {
-            var doesPlayerHaveFocusAlready = ctx.Db.Activity.by_activity_participant_type.Filter((Participant: owner, Type: ActivityType.Focus)).Any();
-            
-            if (!doesPlayerHaveFocusAlready) {
-                ctx.Db.Activity.Insert(new Activity {
-                    Participant =  owner,
-                    Type = ActivityType.Focus,
-                    Cost = new List<ActivityCost>(),
-                    DurationMs = GetEffectiveDurationMs(10_000, value),
-                    RequiredLocation = null,
-                    UnlockCriteria = [],
-                    Level = 1
-                });
-            }
-        }
     }
 
     public static int GetStat(ReducerContext ctx, Identity owner, StatType stat) {

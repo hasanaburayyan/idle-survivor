@@ -402,6 +402,18 @@ public partial class Activity : VBoxContainer
 			case ActivityType.CarbLoad:
 				Add(ResourceType.Money, 14);
 				break;
+			case ActivityType.TrainStrength:
+				Add(ResourceType.Fabric, 15);
+				break;
+			case ActivityType.TrainWit:
+				Add(ResourceType.Metal, 15);
+				break;
+			case ActivityType.TrainEndurance:
+				Add(ResourceType.Money, 15);
+				break;
+			case ActivityType.TrainDexterity:
+				Add(ResourceType.Food, 15);
+				break;
 			default:
 				break;
 		}
@@ -439,6 +451,10 @@ public partial class Activity : VBoxContainer
 		ActivityType.SearchMetal => "Search for Metal",
 		ActivityType.SearchFabric => "Search for Fabric",
 		ActivityType.SearchParts => "Search for Parts",
+		ActivityType.TrainStrength => "Train Strength",
+		ActivityType.TrainWit => "Train Wit",
+		ActivityType.TrainEndurance => "Train Endurance",
+		ActivityType.TrainDexterity => "Train Dexterity",
 		_ => type.ToString()
 	};
 

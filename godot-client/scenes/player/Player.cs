@@ -142,6 +142,10 @@ public partial class Player : CharacterBody2D
 		ActivityType.SearchMetal => "Searching for metal...",
 		ActivityType.SearchFabric => "Searching for fabric...",
 		ActivityType.SearchParts => "Searching for parts...",
+		ActivityType.TrainStrength => "Training strength...",
+		ActivityType.TrainWit => "Training wit...",
+		ActivityType.TrainEndurance => "Training endurance...",
+		ActivityType.TrainDexterity => "Training dexterity...",
 		_ => $"{type}..."
 	};
 

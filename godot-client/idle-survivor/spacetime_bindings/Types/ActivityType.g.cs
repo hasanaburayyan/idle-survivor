@@ -23,5 +23,9 @@ namespace SpacetimeDB.Types
         SearchMetal,
         SearchFabric,
         SearchParts,
+        TrainStrength,
+        TrainWit,
+        TrainEndurance,
+        TrainDexterity,
     }
 }

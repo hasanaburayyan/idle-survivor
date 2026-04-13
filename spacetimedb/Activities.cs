@@ -16,6 +16,10 @@ public enum ActivityType : byte
     SearchMetal,
     SearchFabric,
     SearchParts,
+    TrainStrength,
+    TrainWit,
+    TrainEndurance,
+    TrainDexterity,
 }
 
 [SpacetimeDB.Type]
@@ -148,6 +152,18 @@ public static partial class Module
                 break;
             case ActivityType.CarbLoad:
                 Add(ResourceType.Money, 14);
+                break;
+            case ActivityType.TrainStrength:
+                Add(ResourceType.Fabric, 15);
+                break;
+            case ActivityType.TrainWit:
+                Add(ResourceType.Metal, 15);
+                break;
+            case ActivityType.TrainEndurance:
+                Add(ResourceType.Money, 15);
+                break;
+            case ActivityType.TrainDexterity:
+                Add(ResourceType.Food, 15);
                 break;
             default:
                 break;
@@ -489,7 +505,31 @@ public static partial class Module
     private static void Study(ReducerContext ctx, Identity participant) {
         var level = (int)GetActivityLevel(ctx, participant, ActivityType.Study);
         SetStat(ctx, participant, StatType.Intelligence,
-            GetStat(ctx, participant, StatType.Intelligence) + 3 + level);
+            GetStat(ctx, participant, StatType.Intelligence) + 2 + level);
+    }
+
+    private static void TrainStrengthReward(ReducerContext ctx, Identity participant) {
+        var level = (int)GetActivityLevel(ctx, participant, ActivityType.TrainStrength);
+        SetStat(ctx, participant, StatType.Strength,
+            GetStat(ctx, participant, StatType.Strength) + 2 + level);
+    }
+
+    private static void TrainWitReward(ReducerContext ctx, Identity participant) {
+        var level = (int)GetActivityLevel(ctx, participant, ActivityType.TrainWit);
+        SetStat(ctx, participant, StatType.Wit,
+            GetStat(ctx, participant, StatType.Wit) + 2 + level);
+    }
+
+    private static void TrainEnduranceReward(ReducerContext ctx, Identity participant) {
+        var level = (int)GetActivityLevel(ctx, participant, ActivityType.TrainEndurance);
+        SetStat(ctx, participant, StatType.Endurance,
+            GetStat(ctx, participant, StatType.Endurance) + 2 + level);
+    }
+
+    private static void TrainDexterityReward(ReducerContext ctx, Identity participant) {
+        var level = (int)GetActivityLevel(ctx, participant, ActivityType.TrainDexterity);
+        SetStat(ctx, participant, StatType.Dexterity,
+            GetStat(ctx, participant, StatType.Dexterity) + 2 + level);
     }
 
     private static ulong GetEffectiveDurationMs(ulong baseDurationMs, int statValue)
@@ -525,10 +565,18 @@ public static partial class Module
         DeductActivityCosts(ctx, ctx.Sender, activity.Cost);
 
         var durationMs = activity.DurationMs;
-        if (type == ActivityType.Study)
-            durationMs = GetEffectiveDurationMs(durationMs, GetStat(ctx, ctx.Sender, StatType.Intelligence));
-        else if (type == ActivityType.Focus)
-            durationMs = GetEffectiveDurationMs(durationMs, GetStat(ctx, ctx.Sender, StatType.Perception));
+        StatType? durationScalingStat = type switch
+        {
+            ActivityType.Study => StatType.Intelligence,
+            ActivityType.Focus => StatType.Perception,
+            ActivityType.TrainStrength => StatType.Strength,
+            ActivityType.TrainWit => StatType.Wit,
+            ActivityType.TrainEndurance => StatType.Endurance,
+            ActivityType.TrainDexterity => StatType.Dexterity,
+            _ => null
+        };
+        if (durationScalingStat is StatType scaleStat)
+            durationMs = GetEffectiveDurationMs(durationMs, GetStat(ctx, ctx.Sender, scaleStat));
 
         var completesAt = ctx.Timestamp + TimeSpan.FromMilliseconds(durationMs);
 
@@ -580,6 +628,22 @@ public static partial class Module
             case ActivityType.SearchParts:
                 if (ActivityTypeToSearchResource(task.Type) is ResourceType searchResource)
                     SearchResourceReward(ctx, task.Participant, searchResource, task.Type);
+                break;
+            case ActivityType.TrainStrength:
+                TrainStrengthReward(ctx, task.Participant);
+                UpdateActivityDuration(ctx, task.Participant, ActivityType.TrainStrength, StatType.Strength);
+                break;
+            case ActivityType.TrainWit:
+                TrainWitReward(ctx, task.Participant);
+                UpdateActivityDuration(ctx, task.Participant, ActivityType.TrainWit, StatType.Wit);
+                break;
+            case ActivityType.TrainEndurance:
+                TrainEnduranceReward(ctx, task.Participant);
+                UpdateActivityDuration(ctx, task.Participant, ActivityType.TrainEndurance, StatType.Endurance);
+                break;
+            case ActivityType.TrainDexterity:
+                TrainDexterityReward(ctx, task.Participant);
+                UpdateActivityDuration(ctx, task.Participant, ActivityType.TrainDexterity, StatType.Dexterity);
                 break;
             default:
                 throw new Exception("Unknown activity type");
