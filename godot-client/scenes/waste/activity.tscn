@@ -48,7 +48,6 @@ text = "0.5s"
 [node name="ProgressBar" type="ProgressBar" parent="."]
 unique_name_in_owner = true
 layout_mode = 2
-visible = false
 min_value = 0.0
 max_value = 100.0
 value = 0.0

@@ -111,28 +111,70 @@ theme_override_constants/margin_bottom = 4
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="ChatPanel" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow"]
+[node name="ChatColumn" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow"]
 layout_mode = 2
 custom_minimum_size = Vector2(260, 0)
 size_flags_horizontal = 3
 size_flags_vertical = 3
 size_flags_stretch_ratio = 0.35
+theme_override_constants/separation = 6
+
+[node name="RelevantResourcesPanel" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn"]
+unique_name_in_owner = true
+layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="ChatVBox" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatPanel"]
+[node name="RelevantResourcesVBox" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="RelevantResourcesTitle" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.65, 0.65, 0.7, 1)
+text = "Resources here"
+horizontal_alignment = 1
+
+[node name="RelevantResourcesBar" type="FlowContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 4
+
+[node name="RelevantStatsTitle" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.65, 0.65, 0.7, 1)
+text = "Stats here"
+horizontal_alignment = 1
+
+[node name="RelevantStatsBar" type="FlowContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 4
+
+[node name="ChatPanel" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="ChatVBox" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/ChatPanel"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="ChatHeader" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatPanel/ChatVBox"]
+[node name="ChatHeader" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/ChatPanel/ChatVBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "Chat"
 horizontal_alignment = 1
 
-[node name="HSeparator" type="HSeparator" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatPanel/ChatVBox"]
+[node name="HSeparator" type="HSeparator" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/ChatPanel/ChatVBox"]
 layout_mode = 2
 
-[node name="ChatPlaceholder" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatPanel/ChatVBox"]
+[node name="ChatPlaceholder" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/ChatPanel/ChatVBox"]
 layout_mode = 2
 size_flags_vertical = 3
 text = "Chat will appear here."

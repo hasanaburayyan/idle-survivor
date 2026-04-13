@@ -1,4 +1,5 @@
 using Godot;
+using SpacetimeDB;
 using SpacetimeDB.Types;
 using System;
 using System.Collections.Generic;
@@ -53,6 +54,12 @@ public partial class Waste : Node2D
 
 	private int? _openPopupIndex;
 
+	private FlowContainer _relevantResourcesBar;
+	private FlowContainer _relevantStatsBar;
+	private PanelContainer _relevantResourcesPanel;
+	private Label _relevantResourcesTitle;
+	private Label _relevantStatsTitle;
+
 	public override void _Ready()
 	{
 		_worldRoot = GetNode<Node2D>("%WorldRoot");
@@ -95,6 +102,7 @@ public partial class Waste : Node2D
 		_localPlayerNode.ZIndex = 10;
 		_worldRoot.AddChild(_localPlayerNode);
 		_localPlayerNode.SetName(player.DisplayName);
+		_localPlayerNode.BindActivityDisplay(SpacetimeNetworkManager.Instance.LocalIdentity);
 
 		_statsPanel.InitStats(SpacetimeNetworkManager.Instance.LocalIdentity);
 
@@ -114,6 +122,9 @@ public partial class Waste : Node2D
 		}
 
 		conn.Db.ResourceTracker.OnInsert += OnResourceTrackerInsert;
+		conn.Db.ResourceTracker.OnUpdate += OnLocalResourceTrackerUpdate;
+		conn.Db.PlayerStat.OnInsert += OnLocalPlayerStatInsert;
+		conn.Db.PlayerStat.OnUpdate += OnLocalPlayerStatUpdate;
 		conn.Db.Activity.OnInsert += OnActivityInsert;
 		conn.Db.Activity.OnDelete += OnActivityDelete;
 
@@ -127,6 +138,11 @@ public partial class Waste : Node2D
 		GetViewport().SizeChanged += OnViewportSizeChanged;
 
 		BuildLocationBar();
+		_relevantResourcesBar = GetNode<FlowContainer>("%RelevantResourcesBar");
+		_relevantStatsBar = GetNode<FlowContainer>("%RelevantStatsBar");
+		_relevantResourcesPanel = GetNode<PanelContainer>("%RelevantResourcesPanel");
+		_relevantResourcesTitle = GetNode<Label>("%RelevantResourcesTitle");
+		_relevantStatsTitle = GetNode<Label>("%RelevantStatsTitle");
 		BuildCraftingPanel();
 		RefreshLocationUI();
 	}
@@ -275,6 +291,214 @@ public partial class Waste : Node2D
 		required == playerLoc ||
 		(required == LocationType.Shelter && playerLoc == LocationType.GuildHall);
 
+	private static ulong GetResourceAmount(DbConnection conn, SpacetimeDB.Identity owner, ResourceType type)
+	{
+		foreach (var row in conn.Db.ResourceTracker.ByOwnerAndType.Filter((Owner: owner, Type: type)))
+			return row.Amount;
+		return 0;
+	}
+
+	private static int GetStatValue(DbConnection conn, SpacetimeDB.Identity owner, StatType stat)
+	{
+		foreach (var row in conn.Db.PlayerStat.ByStatOwnerStat.Filter((Owner: owner, Stat: stat)))
+			return row.Value;
+		return 0;
+	}
+
+	private static void AddActivityRelevantStats(ActivityType activityType, HashSet<StatType> set)
+	{
+		switch (activityType)
+		{
+			case ActivityType.Scavenge:
+				set.Add(StatType.Perception);
+				set.Add(StatType.Intelligence);
+				set.Add(StatType.Strength);
+				set.Add(StatType.Wit);
+				set.Add(StatType.Dexterity);
+				set.Add(StatType.Endurance);
+				break;
+			case ActivityType.CarbLoad:
+				set.Add(StatType.Dexterity);
+				set.Add(StatType.Endurance);
+				set.Add(StatType.Intelligence);
+				set.Add(StatType.Perception);
+				set.Add(StatType.Wit);
+				set.Add(StatType.Strength);
+				break;
+			case ActivityType.Focus:
+				set.Add(StatType.Perception);
+				break;
+			case ActivityType.Study:
+				set.Add(StatType.Intelligence);
+				break;
+			case ActivityType.Salvage:
+				set.Add(StatType.Dexterity);
+				set.Add(StatType.Wit);
+				break;
+			case ActivityType.LootBigWood:
+			case ActivityType.BuildShelter:
+				break;
+		}
+	}
+
+	private static List<StatType> ComputeRelevantStatTypes(DbConnection conn, SpacetimeDB.Identity localId, LocationType loc)
+	{
+		var set = new HashSet<StatType>();
+
+		if (loc == LocationType.Waste)
+			AddActivityRelevantStats(ActivityType.Scavenge, set);
+
+		foreach (var activity in conn.Db.Activity.Participant.Filter(localId))
+		{
+			if (!IsLocationValid(activity.RequiredLocation, loc))
+				continue;
+			AddActivityRelevantStats(activity.Type, set);
+		}
+
+		var ordered = new List<StatType>();
+		foreach (StatType st in Enum.GetValues<StatType>())
+		{
+			if (set.Contains(st))
+				ordered.Add(st);
+		}
+		return ordered;
+	}
+
+	private static void AddActivityOutputResourceTypes(ActivityType activityType, HashSet<ResourceType> set)
+	{
+		switch (activityType)
+		{
+			case ActivityType.Salvage:
+				set.Add(ResourceType.Metal);
+				set.Add(ResourceType.Money);
+				break;
+		}
+	}
+
+	private static List<ResourceType> ComputeRelevantResourceTypes(DbConnection conn, SpacetimeDB.Identity localId, LocationType loc)
+	{
+		var set = new HashSet<ResourceType>();
+
+		if (loc == LocationType.Waste)
+		{
+			foreach (ResourceType r in Enum.GetValues<ResourceType>())
+				set.Add(r);
+		}
+
+		foreach (var activity in conn.Db.Activity.Participant.Filter(localId))
+		{
+			if (!IsLocationValid(activity.RequiredLocation, loc))
+				continue;
+			foreach (var c in activity.Cost)
+				set.Add(c.Type);
+			AddActivityOutputResourceTypes(activity.Type, set);
+		}
+
+		if (loc == LocationType.Shelter || loc == LocationType.GuildHall)
+		{
+			foreach (var def in conn.Db.StructureDefinition.Iter())
+			{
+				foreach (var c in def.Cost)
+					set.Add(c.Type);
+			}
+		}
+
+		var ordered = new List<ResourceType>();
+		foreach (ResourceType rt in Enum.GetValues<ResourceType>())
+		{
+			if (set.Contains(rt))
+				ordered.Add(rt);
+		}
+		return ordered;
+	}
+
+	private void RefreshRelevantLocationContext()
+	{
+		if (_relevantResourcesBar is null || _relevantStatsBar is null || _relevantResourcesPanel is null)
+			return;
+
+		foreach (var child in _relevantResourcesBar.GetChildren())
+			child.QueueFree();
+		foreach (var child in _relevantStatsBar.GetChildren())
+			child.QueueFree();
+
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+		var player = conn.Db.Player.Identity.Find(localId);
+		if (player is null)
+		{
+			_relevantResourcesPanel.Visible = false;
+			return;
+		}
+
+		var loc = player.Location;
+		var resourceTypes = ComputeRelevantResourceTypes(conn, localId, loc);
+		var statTypes = ComputeRelevantStatTypes(conn, localId, loc);
+
+		_relevantResourcesTitle.Visible = resourceTypes.Count > 0;
+		_relevantStatsTitle.Visible = statTypes.Count > 0;
+		_relevantResourcesPanel.Visible = resourceTypes.Count > 0 || statTypes.Count > 0;
+
+		foreach (var rt in resourceTypes)
+		{
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 4);
+
+			var nameLabel = new Label();
+			nameLabel.Text = rt.ToString();
+			nameLabel.AddThemeFontSizeOverride("font_size", 14);
+
+			var amountLabel = new Label();
+			amountLabel.Text = GetResourceAmount(conn, localId, rt).ToString();
+			amountLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.4f));
+			amountLabel.AddThemeFontSizeOverride("font_size", 14);
+
+			row.AddChild(nameLabel);
+			row.AddChild(amountLabel);
+			_relevantResourcesBar.AddChild(row);
+		}
+
+		foreach (var st in statTypes)
+		{
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 4);
+
+			var nameLabel = new Label();
+			nameLabel.Text = st.ToString();
+			nameLabel.AddThemeFontSizeOverride("font_size", 14);
+
+			var valueLabel = new Label();
+			valueLabel.Text = GetStatValue(conn, localId, st).ToString();
+			valueLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.85f, 0.4f));
+			valueLabel.AddThemeFontSizeOverride("font_size", 14);
+
+			row.AddChild(nameLabel);
+			row.AddChild(valueLabel);
+			_relevantStatsBar.AddChild(row);
+		}
+	}
+
+	private void OnLocalResourceTrackerUpdate(EventContext ctx, SpacetimeDB.Types.ResourceTracker oldRow, SpacetimeDB.Types.ResourceTracker newRow)
+	{
+		if (newRow.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
+			return;
+		RefreshRelevantLocationContext();
+	}
+
+	private void OnLocalPlayerStatInsert(EventContext ctx, SpacetimeDB.Types.PlayerStat row)
+	{
+		if (row.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
+			return;
+		RefreshRelevantLocationContext();
+	}
+
+	private void OnLocalPlayerStatUpdate(EventContext ctx, SpacetimeDB.Types.PlayerStat oldRow, SpacetimeDB.Types.PlayerStat newRow)
+	{
+		if (newRow.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
+			return;
+		RefreshRelevantLocationContext();
+	}
+
 	private void RefreshLocationUI()
 	{
 		var conn = SpacetimeNetworkManager.Instance.Conn;
@@ -298,6 +522,7 @@ public partial class Waste : Node2D
 			RefreshCraftingMenu();
 
 		RefreshActivityVisibility(loc);
+		RefreshRelevantLocationContext();
 	}
 
 	private void RefreshActivityVisibility(LocationType loc)
@@ -429,6 +654,7 @@ public partial class Waste : Node2D
 		sprite.ZIndex = 0;
 		_worldRoot.AddChild(sprite);
 		sprite.SetName(displayName);
+		sprite.BindActivityDisplay(playerId);
 		_guildMemberSprites[playerId] = sprite;
 	}
 
@@ -516,6 +742,7 @@ public partial class Waste : Node2D
 		resourceTracker.Name = tracker.Id.ToString();
 		_leftSide.AddChild(resourceTracker);
 		resourceTracker.InitResourceTracking(tracker.Id);
+		RefreshRelevantLocationContext();
 	}
 
 	private void OnActivityInsert(EventContext ctx, SpacetimeDB.Types.Activity activity)
@@ -524,6 +751,7 @@ public partial class Waste : Node2D
 			return;
 
 		AddActivityNode(activity);
+		RefreshRelevantLocationContext();
 	}
 
 	private void OnActivityDelete(EventContext ctx, SpacetimeDB.Types.Activity activity)
@@ -536,5 +764,6 @@ public partial class Waste : Node2D
 			node.QueueFree();
 			_activityNodes.Remove(activity.Id);
 		}
+		RefreshRelevantLocationContext();
 	}
 }
