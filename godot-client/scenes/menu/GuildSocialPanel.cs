@@ -5,17 +5,11 @@ using System.Linq;
 using SpacetimeDB;
 using SpacetimeDB.Types;
 
-public partial class GameMenu : CanvasLayer
+public partial class GuildSocialPanel : VBoxContainer
 {
 	private static readonly Color GoldAccent = new(0.9f, 0.85f, 0.4f);
 	private static readonly Color OfficerBlue = new(0.4f, 0.6f, 1.0f);
 	private static readonly Color MutedGray = new(0.6f, 0.6f, 0.6f);
-	private static readonly Color DangerRed = new(0.9f, 0.3f, 0.3f);
-
-	private PanelContainer _panel;
-	private TabBar _tabBar;
-	private Control _generalTab;
-	private Control _socialTab;
 
 	// No-guild UI
 	private ScrollContainer _noGuildContainer;
@@ -45,30 +39,8 @@ public partial class GameMenu : CanvasLayer
 	private PanelContainer _adminPanelContainer;
 	private VBoxContainer _joinRequestsList;
 
-	// Profile UI (General tab)
-	private Label _currentNameLabel;
-	private LineEdit _nameInput;
-	private Button _saveNameButton;
-
 	[Signal]
 	public delegate void GuildSessionChangedEventHandler(bool inSession);
-
-	private bool _isOpen;
-
-	private static StyleBoxFlat CreatePanelStyle()
-	{
-		var style = new StyleBoxFlat();
-		style.BgColor = new Color(0.12f, 0.12f, 0.15f, 0.9f);
-		style.CornerRadiusTopLeft = 8;
-		style.CornerRadiusTopRight = 8;
-		style.CornerRadiusBottomLeft = 8;
-		style.CornerRadiusBottomRight = 8;
-		style.ContentMarginLeft = 16;
-		style.ContentMarginTop = 12;
-		style.ContentMarginRight = 16;
-		style.ContentMarginBottom = 12;
-		return style;
-	}
 
 	private static StyleBoxFlat CreateSubPanelStyle()
 	{
@@ -112,55 +84,9 @@ public partial class GameMenu : CanvasLayer
 
 	public override void _Ready()
 	{
-		Layer = 10;
-		Visible = false;
-		_isOpen = false;
-
-		_panel = new PanelContainer();
-		_panel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
-		_panel.AnchorLeft = 0.1f;
-		_panel.AnchorRight = 0.9f;
-		_panel.AnchorTop = 0.1f;
-		_panel.AnchorBottom = 0.9f;
-		_panel.OffsetLeft = 0;
-		_panel.OffsetRight = 0;
-		_panel.OffsetTop = 0;
-		_panel.OffsetBottom = 0;
-		_panel.GrowHorizontal = Control.GrowDirection.Both;
-		_panel.GrowVertical = Control.GrowDirection.Both;
-		AddChild(_panel);
-
-		var mainVBox = new VBoxContainer();
-		mainVBox.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		mainVBox.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		mainVBox.AddThemeConstantOverride("separation", 12);
-		_panel.AddChild(mainVBox);
-
-		_tabBar = new TabBar();
-		_tabBar.AddTab("General");
-		_tabBar.AddTab("Social");
-		_tabBar.TabChanged += OnTabChanged;
-		mainVBox.AddChild(_tabBar);
-
-		var tabContent = new MarginContainer();
-		tabContent.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		tabContent.AddThemeConstantOverride("margin_left", 8);
-		tabContent.AddThemeConstantOverride("margin_right", 8);
-		tabContent.AddThemeConstantOverride("margin_top", 8);
-		tabContent.AddThemeConstantOverride("margin_bottom", 8);
-		mainVBox.AddChild(tabContent);
-
-		_generalTab = new VBoxContainer();
-		_generalTab.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		_generalTab.AddThemeConstantOverride("separation", 10);
-		BuildProfileUI();
-		tabContent.AddChild(_generalTab);
-
-		_socialTab = new VBoxContainer();
-		_socialTab.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		_socialTab.AddThemeConstantOverride("separation", 10);
-		_socialTab.Visible = false;
-		tabContent.AddChild(_socialTab);
+		SizeFlagsHorizontal = SizeFlags.Fill | SizeFlags.Expand;
+		SizeFlagsVertical = SizeFlags.Fill | SizeFlags.Expand;
+		AddThemeConstantOverride("separation", 10);
 
 		BuildNoGuildUI();
 		BuildInGuildUI();
@@ -183,108 +109,10 @@ public partial class GameMenu : CanvasLayer
 		RefreshSocialTab();
 	}
 
-	public override void _UnhandledInput(InputEvent @event)
+	/// <summary>Call when the Social popup is shown.</summary>
+	public void RefreshOnOpen()
 	{
-		if (@event.IsActionPressed("menu_toggle"))
-		{
-			if (_isOpen)
-				CloseMenu();
-			else
-				OpenMenu(0);
-			GetViewport().SetInputAsHandled();
-		}
-		else if (@event.IsActionPressed("social_toggle"))
-		{
-			if (_isOpen && _tabBar.CurrentTab == 1)
-				CloseMenu();
-			else
-				OpenMenu(1);
-			GetViewport().SetInputAsHandled();
-		}
-	}
-
-	private void OpenMenu(int tab)
-	{
-		_isOpen = true;
-		Visible = true;
-		_tabBar.CurrentTab = tab;
-		ShowTab(tab);
-	}
-
-	private void CloseMenu()
-	{
-		_isOpen = false;
-		Visible = false;
-	}
-
-	private void OnTabChanged(long tab)
-	{
-		ShowTab((int)tab);
-	}
-
-	private void ShowTab(int tab)
-	{
-		_generalTab.Visible = tab == 0;
-		_socialTab.Visible = tab == 1;
-		if (tab == 1)
-			RefreshSocialTab();
-	}
-
-	// ── Profile UI (General Tab) ────────────────────────────────
-
-	private void BuildProfileUI()
-	{
-		var profilePanel = CreateSectionPanel();
-		var profileVBox = new VBoxContainer();
-		profileVBox.AddThemeConstantOverride("separation", 8);
-		profileVBox.AddChild(CreateSectionHeader("Profile"));
-		profileVBox.AddChild(new HSeparator());
-
-		var currentRow = new HBoxContainer();
-		currentRow.AddThemeConstantOverride("separation", 8);
-		var currentLabel = new Label();
-		currentLabel.Text = "Display Name:";
-		currentRow.AddChild(currentLabel);
-		_currentNameLabel = new Label();
-		_currentNameLabel.AddThemeColorOverride("font_color", GoldAccent);
-		_currentNameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		currentRow.AddChild(_currentNameLabel);
-		profileVBox.AddChild(currentRow);
-
-		var editRow = new HBoxContainer();
-		_nameInput = new LineEdit();
-		_nameInput.PlaceholderText = "Enter new name...";
-		_nameInput.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		editRow.AddChild(_nameInput);
-
-		_saveNameButton = new Button();
-		_saveNameButton.Text = "Save";
-		_saveNameButton.CustomMinimumSize = new Godot.Vector2(140, 36);
-		_saveNameButton.Pressed += OnSaveNamePressed;
-		editRow.AddChild(_saveNameButton);
-		profileVBox.AddChild(editRow);
-
-		profilePanel.AddChild(profileVBox);
-		_generalTab.AddChild(profilePanel);
-
-		RefreshProfileUI();
-	}
-
-	private void RefreshProfileUI()
-	{
-		var conn = SpacetimeNetworkManager.Instance.Conn;
-		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
-		var player = conn.Db.Player.Identity.Find(localId);
-		_currentNameLabel.Text = player?.DisplayName ?? "Unknown";
-	}
-
-	private void OnSaveNamePressed()
-	{
-		var newName = _nameInput.Text.Trim();
-		if (string.IsNullOrEmpty(newName)) return;
-
-		SpacetimeNetworkManager.Instance.Conn.Reducers.SetName(newName);
-		_nameInput.Text = "";
+		RefreshSocialTab();
 	}
 
 	// ── No-Guild UI ─────────────────────────────────────────────
@@ -381,7 +209,7 @@ public partial class GameMenu : CanvasLayer
 		noGuildVBox.AddChild(invitesPanel);
 
 		_noGuildContainer.AddChild(noGuildVBox);
-		_socialTab.AddChild(_noGuildContainer);
+		AddChild(_noGuildContainer);
 	}
 
 	// ── In-Guild UI ─────────────────────────────────────────────
@@ -502,7 +330,7 @@ public partial class GameMenu : CanvasLayer
 		actionsRow.AddChild(_disbandGuildButton);
 		_inGuildContainer.AddChild(actionsRow);
 
-		_socialTab.AddChild(_inGuildContainer);
+		AddChild(_inGuildContainer);
 	}
 
 	// ── Refresh Logic ───────────────────────────────────────────
@@ -944,9 +772,6 @@ public partial class GameMenu : CanvasLayer
 
 	private void OnPlayerUpdate(EventContext ctx, SpacetimeDB.Types.Player oldPlayer, SpacetimeDB.Types.Player newPlayer)
 	{
-		if (newPlayer.Identity == SpacetimeNetworkManager.Instance.LocalIdentity)
-			CallDeferred(nameof(DeferredRefreshProfile));
-
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		var guildId = GetLocalGuildId();
 		if (guildId is null) return;
@@ -985,11 +810,6 @@ public partial class GameMenu : CanvasLayer
 	private void DeferredRefreshSocial()
 	{
 		RefreshSocialTab();
-	}
-
-	private void DeferredRefreshProfile()
-	{
-		RefreshProfileUI();
 	}
 
 	// ── Button Handlers ─────────────────────────────────────────

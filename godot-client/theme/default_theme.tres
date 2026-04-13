@@ -1,24 +1,18 @@
-[gd_resource type="Theme" format=3]
+[gd_resource type="Theme" format=3 uid="uid://dip5q8cif3hmy"]
 
 [sub_resource type="StyleBoxLine" id="StyleBoxLine_sep"]
-color = Color(0.3, 0.3, 0.35, 1.0)
-thickness = 1
+color = Color(0.3, 0.3, 0.35, 1)
 
 [resource]
 default_font_size = 24
-
-Button/font_sizes/font_size = 22
 Button/constants/h_separation = 12
-
-Label/font_sizes/font_size = 24
-
+Button/font_sizes/font_size = 22
 HBoxContainer/constants/separation = 12
-VBoxContainer/constants/separation = 8
-
+HSeparator/constants/separation = 8
+HSeparator/styles/separator = SubResource("StyleBoxLine_sep")
+Label/font_sizes/font_size = 24
+MarginContainer/constants/margin_bottom = 20
 MarginContainer/constants/margin_left = 20
 MarginContainer/constants/margin_right = 20
 MarginContainer/constants/margin_top = 20
-MarginContainer/constants/margin_bottom = 20
-
-HSeparator/constants/separation = 8
-HSeparator/styles/separator = SubResource("StyleBoxLine_sep")
+VBoxContainer/constants/separation = 8
