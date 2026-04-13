@@ -1,4 +1,6 @@
 using Godot;
+using SpacetimeDB;
+using SpacetimeDB.Types;
 using System;
 
 public partial class Player : CharacterBody2D
@@ -27,7 +29,9 @@ public partial class Player : CharacterBody2D
 	private enum AnimState { Moving, Idle, Action }
 
 	public Label DisplayNameLabel;
+	public Label ActivityLabel;
 	private AnimatedSprite2D _sprite;
+	private Identity? _activityIdentity;
 	private AnimState _state = AnimState.Moving;
 	private Vector2 _moveDir = Vector2.Right;
 	private float _stateTimer;
@@ -37,11 +41,80 @@ public partial class Player : CharacterBody2D
 	public override void _Ready()
 	{
 		DisplayNameLabel = GetNode<Label>("%DisplayName");
+		ActivityLabel = GetNode<Label>("%ActivityLabel");
+		ActivityLabel.Visible = false;
 		_sprite = GetNode<AnimatedSprite2D>("AnimatedSprite2D");
 		LoadAnimations();
 		_sprite.AnimationFinished += OnAnimationFinished;
 		EnterMoving();
 	}
+
+	public override void _ExitTree()
+	{
+		UnbindActivityDisplay();
+		base._ExitTree();
+	}
+
+	public void BindActivityDisplay(Identity playerId)
+	{
+		UnbindActivityDisplay();
+		var conn = SpacetimeNetworkManager.Instance?.Conn;
+		if (conn is null)
+			return;
+		_activityIdentity = playerId;
+		conn.Db.ActiveTask.OnInsert += OnActiveTaskTableChanged;
+		conn.Db.ActiveTask.OnDelete += OnActiveTaskTableChanged;
+		RefreshActivityLabel();
+	}
+
+	private void UnbindActivityDisplay()
+	{
+		if (!_activityIdentity.HasValue)
+			return;
+		var conn = SpacetimeNetworkManager.Instance?.Conn;
+		if (conn is not null)
+		{
+			conn.Db.ActiveTask.OnInsert -= OnActiveTaskTableChanged;
+			conn.Db.ActiveTask.OnDelete -= OnActiveTaskTableChanged;
+		}
+		_activityIdentity = null;
+	}
+
+	private void OnActiveTaskTableChanged(EventContext ctx, ActiveTask row)
+	{
+		if (!_activityIdentity.HasValue || row.Participant != _activityIdentity.Value)
+			return;
+		RefreshActivityLabel();
+	}
+
+	private void RefreshActivityLabel()
+	{
+		if (ActivityLabel is null || !_activityIdentity.HasValue)
+			return;
+		var conn = SpacetimeNetworkManager.Instance?.Conn;
+		if (conn is null)
+			return;
+		var task = conn.Db.ActiveTask.Participant.Find(_activityIdentity.Value);
+		if (task is null)
+		{
+			ActivityLabel.Visible = false;
+			return;
+		}
+		ActivityLabel.Visible = true;
+		ActivityLabel.Text = FormatActivityLine(task.Type);
+	}
+
+	private static string FormatActivityLine(ActivityType type) => type switch
+	{
+		ActivityType.Scavenge => "Scavenging...",
+		ActivityType.LootBigWood => "Looting...",
+		ActivityType.CarbLoad => "Carb loading...",
+		ActivityType.Study => "Studying...",
+		ActivityType.Focus => "Focusing...",
+		ActivityType.BuildShelter => "Building shelter...",
+		ActivityType.Salvage => "Salvaging...",
+		_ => $"{type}..."
+	};
 
 	private void LoadAnimations()
 	{

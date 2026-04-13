@@ -347,11 +347,24 @@ position = Vector2(14, 0)
 sprite_frames = SubResource("SpriteFrames_5gtgg")
 animation = &"run"
 
+[node name="ActivityLabel" type="Label" parent="." unique_id=2057187169]
+unique_name_in_owner = true
+offset_left = -80.0
+offset_top = -74.0
+offset_right = 80.0
+offset_bottom = -52.0
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.82, 0.92, 0.78, 1)
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
 [node name="DisplayName" type="Label" parent="." unique_id=2057187170]
 unique_name_in_owner = true
 offset_left = -47.0
-offset_top = -46.0
+offset_top = -52.0
 offset_right = 56.0
-offset_bottom = -23.0
+offset_bottom = -29.0
 text = "DisplayName"
 horizontal_alignment = 1

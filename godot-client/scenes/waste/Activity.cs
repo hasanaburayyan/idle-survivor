@@ -24,6 +24,12 @@ public partial class Activity : VBoxContainer
 
 	private bool _autoRepeatArmed;
 
+	/// <summary>Client-side progress fill for the matching activity only; not driven by per-frame DB reads.</summary>
+	private bool _progressAnimating;
+	private ulong _progressLocalStartUsec;
+	private double _progressInitialPercent;
+	private ulong _progressRemainingUsec;
+
 	public override void _Ready()
 	{
 		ActivateButton = GetNode<Button>("%ActivateButton");
@@ -33,6 +39,9 @@ public partial class Activity : VBoxContainer
 
 		ActivateButton.Pressed += OnActivatePressed;
 		ActivateButton.GuiInput += OnActivateButtonGuiInput;
+
+		ProgressBar.Visible = true;
+		ProgressBar.Value = 0;
 	}
 
 	public override void _ExitTree()
@@ -146,24 +155,41 @@ public partial class Activity : VBoxContainer
 		currentTask = task;
 		var activity = SpacetimeNetworkManager.Instance.Conn.Db.Activity.Id.Find(trackingId);
 
-		if (task.Type == activity.Type)
+		ActivateButton.Disabled = true;
+
+		if (task.Type != activity.Type)
 		{
-			ActivateButton.Disabled = true;
-			ProgressBar.Visible = true;
+			_progressAnimating = false;
 			ProgressBar.Value = 0;
+			return;
 		}
-		else
+
+		var startUs = (long)task.StartedAt.MicrosecondsSinceUnixEpoch;
+		var endUs = (long)task.CompletesAt.MicrosecondsSinceUnixEpoch;
+		var totalUs = endUs - startUs;
+		if (totalUs <= 0)
 		{
-			ActivateButton.Disabled = true;
-			ProgressBar.Visible = false;
+			_progressAnimating = false;
+			ProgressBar.Value = 100;
+			return;
 		}
+
+		// One-time wall-clock catch-up so mid-task joins and network delay align with server window;
+		// animation deltas use monotonic time only.
+		var wallNowUs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1000L;
+		var alreadyUs = Math.Max(0L, Math.Min(wallNowUs - startUs, totalUs));
+		_progressInitialPercent = alreadyUs / (double)totalUs * 100.0;
+		_progressRemainingUsec = (ulong)Math.Max(1, totalUs - alreadyUs);
+		_progressLocalStartUsec = Time.GetTicksUsec();
+		_progressAnimating = true;
+		ProgressBar.Value = Math.Clamp(_progressInitialPercent, 0.0, 100.0);
 	}
 
 	private void OnActiveTaskFinished(SpacetimeDB.Types.ActiveTask finishedTask)
 	{
 		currentTask = null;
+		_progressAnimating = false;
 		ActivateButton.Disabled = false;
-		ProgressBar.Visible = false;
 		ProgressBar.Value = 0;
 
 		var conn = SpacetimeNetworkManager.Instance.Conn;
@@ -203,24 +229,23 @@ public partial class Activity : VBoxContainer
 
 	public override void _Process(double delta)
 	{
-		if (currentTask is not SpacetimeDB.Types.ActiveTask task) return;
+		if (!_progressAnimating || currentTask is not SpacetimeDB.Types.ActiveTask task)
+			return;
 
 		var activity = SpacetimeNetworkManager.Instance.Conn.Db.Activity.Id.Find(trackingId);
-		if (task.Type != activity.Type) return;
+		if (task.Type != activity.Type)
+			return;
 
-		var startUs = task.StartedAt.MicrosecondsSinceUnixEpoch;
-		var endUs = task.CompletesAt.MicrosecondsSinceUnixEpoch;
-		var totalUs = (double)(endUs - startUs);
-		if (totalUs <= 0)
+		if (_progressInitialPercent >= 100.0)
 		{
 			ProgressBar.Value = 100;
 			return;
 		}
 
-		var nowUs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1000L;
-		var elapsedUs = (double)(nowUs - startUs);
-		var progress = Math.Clamp(elapsedUs / totalUs * 100.0, 0.0, 100.0);
-		ProgressBar.Value = progress;
+		var monoElapsedUsec = Time.GetTicksUsec() - _progressLocalStartUsec;
+		var span = 100.0 - _progressInitialPercent;
+		var deltaP = monoElapsedUsec / (double)_progressRemainingUsec * span;
+		ProgressBar.Value = Math.Clamp(_progressInitialPercent + deltaP, 0.0, 100.0);
 	}
 
 	private void Format(SpacetimeDB.Types.Activity activity)
