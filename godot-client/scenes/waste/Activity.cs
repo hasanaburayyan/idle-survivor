@@ -149,6 +149,7 @@ public partial class Activity : VBoxContainer
 	private void OnTrackedActiveTaskDelete(SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.ActiveTask task)
 	{
 		if (task.Participant != _trackedIdentity) return;
+		if (currentTask is null) return;
 		OnActiveTaskFinished(task);
 	}
 
@@ -251,17 +252,12 @@ public partial class Activity : VBoxContainer
 
 	private void OnActiveTaskStarted(SpacetimeDB.Types.ActiveTask task)
 	{
-		currentTask = task;
 		var activity = SpacetimeNetworkManager.Instance.Conn.Db.Activity.Id.Find(trackingId);
-
-		RefreshFormat();
-
 		if (activity is null || task.Type != activity.Type)
-		{
-			_progressAnimating = false;
-			ProgressBar.Value = 0;
 			return;
-		}
+
+		currentTask = task;
+		RefreshFormat();
 
 		var startUs = (long)task.StartedAt.MicrosecondsSinceUnixEpoch;
 		var endUs = (long)task.CompletesAt.MicrosecondsSinceUnixEpoch;
@@ -273,8 +269,6 @@ public partial class Activity : VBoxContainer
 			return;
 		}
 
-		// One-time wall-clock catch-up so mid-task joins and network delay align with server window;
-		// animation deltas use monotonic time only.
 		var wallNowUs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1000L;
 		var alreadyUs = Math.Max(0L, Math.Min(wallNowUs - startUs, totalUs));
 		_progressInitialPercent = alreadyUs / (double)totalUs * 100.0;
@@ -357,15 +351,21 @@ public partial class Activity : VBoxContainer
 		ProgressBar.Value = Math.Clamp(_progressInitialPercent + deltaP, 0.0, 100.0);
 	}
 
+	public static bool IsCraftableActivityType(ActivityType type) => type switch
+	{
+		ActivityType.BuildDumbbells => true,
+		ActivityType.BuildBookshelf => true,
+		ActivityType.BuildDartBoard => true,
+		ActivityType.BuildMeditationNook => true,
+		ActivityType.BuildStairStepper => true,
+		ActivityType.BuildPingPongTable => true,
+		_ => false
+	};
+
 	private static bool ActivityTypeSupportsUpgrade(ActivityType type) => type switch
 	{
 		ActivityType.BuildShelter => false,
-		ActivityType.BuildDumbbells => false,
-		ActivityType.BuildBookshelf => false,
-		ActivityType.BuildDartBoard => false,
-		ActivityType.BuildMeditationNook => false,
-		ActivityType.BuildStairStepper => false,
-		ActivityType.BuildPingPongTable => false,
+		_ when IsCraftableActivityType(type) => false,
 		_ => true
 	};
 
@@ -458,7 +458,7 @@ public partial class Activity : VBoxContainer
 		return true;
 	}
 
-	private static string GetActivityDisplayName(ActivityType type) => type switch
+	public static string GetActivityDisplayName(ActivityType type) => type switch
 	{
 		ActivityType.Scavenge => "Scavenge",
 		ActivityType.LootBigWood => "Loot Big Wood",
@@ -493,6 +493,24 @@ public partial class Activity : VBoxContainer
 		return 0;
 	}
 
+	public static ulong GetEffectiveDurationMs(SpacetimeDB.Types.Activity activity, DbConnection conn, SpacetimeDB.Identity owner)
+	{
+		StatType? scalingStat = activity.Type switch
+		{
+			ActivityType.Study => StatType.Intelligence,
+			ActivityType.Focus => StatType.Perception,
+			ActivityType.TrainStrength => StatType.Strength,
+			ActivityType.TrainWit => StatType.Wit,
+			ActivityType.TrainEndurance => StatType.Endurance,
+			ActivityType.TrainDexterity => StatType.Dexterity,
+			_ => null
+		};
+		if (scalingStat is not StatType s)
+			return activity.DurationMs;
+		var effective = activity.DurationMs / (1.0 + GetStatValue(conn, owner, s) * 0.1);
+		return Math.Max(250, (ulong)effective);
+	}
+
 	private static bool ActivityMeetsUnlockCriteria(DbConnection conn, SpacetimeDB.Identity owner, SpacetimeDB.Types.Activity activity)
 	{
 		foreach (var c in activity.UnlockCriteria)
@@ -514,6 +532,13 @@ public partial class Activity : VBoxContainer
 
 	private void Format(SpacetimeDB.Types.Activity activity)
 	{
+		if (IsCraftableActivityType(activity.Type))
+		{
+			DisarmAutoRepeatIfThis();
+			Visible = false;
+			return;
+		}
+
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
 
@@ -541,7 +566,8 @@ public partial class Activity : VBoxContainer
 			costParts.Add("Cost: " + string.Join(", ", activity.Cost.Select(c => $"{c.Amount} {c.Type}")));
 		CostLabel.Text = string.Join(" — ", costParts);
 
-		var seconds = activity.DurationMs / 1000.0;
+		var effectiveMs = GetEffectiveDurationMs(activity, conn, localId);
+		var seconds = effectiveMs / 1000.0;
 		DurationLabel.Text = seconds >= 1.0 ? $"{seconds:F0}s" : $"{seconds:F1}s";
 
 		if (ActivityTypeSupportsUpgrade(activity.Type))

@@ -570,14 +570,6 @@ public static partial class Module
         return Math.Max(250, (ulong)effective);
     }
 
-    private static void UpdateActivityDuration(ReducerContext ctx, Identity participant, ActivityType type, StatType stat)
-    {
-        var activity = ctx.Db.Activity.by_activity_participant_type
-            .Filter((Participant: participant, Type: type)).First();
-        activity.DurationMs = GetEffectiveDurationMs(activity.DurationMs, GetStat(ctx, participant, stat));
-        ctx.Db.Activity.Id.Update(activity);
-    }
-
     [SpacetimeDB.Reducer]
     public static void StartActivity(ReducerContext ctx, ActivityType type) {
         if (ctx.Db.ActiveTask.Participant.Find(ctx.Sender) is ActiveTask existing)
@@ -640,11 +632,9 @@ public static partial class Module
                 break;
             case ActivityType.Study:
                 Study(ctx, task.Participant);
-                UpdateActivityDuration(ctx, task.Participant, ActivityType.Study, StatType.Intelligence);
                 break;
             case ActivityType.Focus:
                 Focus(ctx, task.Participant);
-                UpdateActivityDuration(ctx, task.Participant, ActivityType.Focus, StatType.Perception);
                 break;
             case ActivityType.BuildShelter:
                 BuildShelterReward(ctx, task.Participant);
@@ -663,19 +653,15 @@ public static partial class Module
                 break;
             case ActivityType.TrainStrength:
                 TrainStrengthReward(ctx, task.Participant);
-                UpdateActivityDuration(ctx, task.Participant, ActivityType.TrainStrength, StatType.Strength);
                 break;
             case ActivityType.TrainWit:
                 TrainWitReward(ctx, task.Participant);
-                UpdateActivityDuration(ctx, task.Participant, ActivityType.TrainWit, StatType.Wit);
                 break;
             case ActivityType.TrainEndurance:
                 TrainEnduranceReward(ctx, task.Participant);
-                UpdateActivityDuration(ctx, task.Participant, ActivityType.TrainEndurance, StatType.Endurance);
                 break;
             case ActivityType.TrainDexterity:
                 TrainDexterityReward(ctx, task.Participant);
-                UpdateActivityDuration(ctx, task.Participant, ActivityType.TrainDexterity, StatType.Dexterity);
                 break;
             case ActivityType.BuildDumbbells:
             case ActivityType.BuildBookshelf:
