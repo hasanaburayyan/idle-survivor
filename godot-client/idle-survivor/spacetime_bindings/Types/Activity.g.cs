@@ -25,6 +25,10 @@ namespace SpacetimeDB.Types
         public ulong DurationMs;
         [DataMember(Name = "required_location")]
         public LocationType? RequiredLocation;
+        [DataMember(Name = "unlock_criteria")]
+        public System.Collections.Generic.List<ActivityUnlockCriterion> UnlockCriteria;
+        [DataMember(Name = "level")]
+        public uint Level;
 
         public Activity(
             ulong Id,
@@ -32,7 +36,9 @@ namespace SpacetimeDB.Types
             ActivityType Type,
             System.Collections.Generic.List<ActivityCost> Cost,
             ulong DurationMs,
-            LocationType? RequiredLocation
+            LocationType? RequiredLocation,
+            System.Collections.Generic.List<ActivityUnlockCriterion> UnlockCriteria,
+            uint Level
         )
         {
             this.Id = Id;
@@ -41,11 +47,14 @@ namespace SpacetimeDB.Types
             this.Cost = Cost;
             this.DurationMs = DurationMs;
             this.RequiredLocation = RequiredLocation;
+            this.UnlockCriteria = UnlockCriteria;
+            this.Level = Level;
         }
 
         public Activity()
         {
             this.Cost = new();
+            this.UnlockCriteria = new();
         }
     }
 }

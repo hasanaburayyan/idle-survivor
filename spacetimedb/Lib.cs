@@ -16,6 +16,9 @@ public static partial class Module
         {
             StartWasteSchedules(ctx, player.Identity);
         }
+
+        EnsureSearchActivities(ctx, player.Identity);
+        EnsureActivityLevels(ctx, player.Identity);
     }
 
     [SpacetimeDB.Reducer(ReducerKind.ClientDisconnected)]

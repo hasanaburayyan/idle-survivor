@@ -17,5 +17,11 @@ namespace SpacetimeDB.Types
         Focus,
         BuildShelter,
         Salvage,
+        SearchFood,
+        SearchMoney,
+        SearchWood,
+        SearchMetal,
+        SearchFabric,
+        SearchParts,
     }
 }

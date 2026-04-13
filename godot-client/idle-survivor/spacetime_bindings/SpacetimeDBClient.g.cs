@@ -680,6 +680,7 @@ namespace SpacetimeDB.Types
                 Reducer.StartActivity args => Reducers.InvokeStartActivity(eventContext, args),
                 Reducer.StartWasteSchedules args => Reducers.InvokeStartWasteSchedules(eventContext, args),
                 Reducer.Travel args => Reducers.InvokeTravel(eventContext, args),
+                Reducer.UpgradeActivity args => Reducers.InvokeUpgradeActivity(eventContext, args),
                 _ => throw new ArgumentOutOfRangeException("Reducer", $"Unknown reducer {reducer}")
             };
         }

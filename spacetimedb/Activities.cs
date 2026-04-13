@@ -10,12 +10,25 @@ public enum ActivityType : byte
     Focus,
     BuildShelter,
     Salvage,
+    SearchFood,
+    SearchMoney,
+    SearchWood,
+    SearchMetal,
+    SearchFabric,
+    SearchParts,
 }
 
 [SpacetimeDB.Type]
 public partial struct ActivityCost {
     public ResourceType Type;
     public ulong Amount;
+}
+
+[SpacetimeDB.Type]
+public partial struct ActivityUnlockCriterion
+{
+    public StatType Stat;
+    public int MinValue;
 }
 
 public static partial class Module
@@ -32,6 +45,9 @@ public static partial class Module
         public List<ActivityCost> Cost;
         public ulong DurationMs;
         public LocationType? RequiredLocation;
+        public List<ActivityUnlockCriterion> UnlockCriteria;
+        [SpacetimeDB.Default(1)]
+        public uint Level;
     }
 
     [SpacetimeDB.Table(Accessor = "ActiveTask", Public = true)]
@@ -68,6 +84,129 @@ public static partial class Module
 
         [SpacetimeDB.Index.BTree]
         public Identity Participant;
+    }
+
+    private static uint GetActivityLevel(ReducerContext ctx, Identity participant, ActivityType type)
+    {
+        var row = ctx.Db.Activity.by_activity_participant_type
+            .Filter((Participant: participant, Type: type)).First();
+        return row.Level;
+    }
+
+    /// <summary>Superlinear: base * currentLevel^2 (current level before upgrade).</summary>
+    private static ulong ScaledUpgradeCost(ulong baseAmount, uint level) =>
+        baseAmount * (ulong)level * (ulong)level;
+
+    /// <summary>Must match client preview in godot-client/scenes/waste/Activity.cs</summary>
+    private static void AppendNextUpgradeCosts(ActivityType type, uint currentLevel, List<ActivityCost> dest)
+    {
+        void Add(ResourceType rt, ulong baseAmt) =>
+            dest.Add(new ActivityCost { Type = rt, Amount = ScaledUpgradeCost(baseAmt, currentLevel) });
+
+        switch (type)
+        {
+            case ActivityType.Scavenge:
+                Add(ResourceType.Food, 5);
+                Add(ResourceType.Money, 5);
+                Add(ResourceType.Wood, 5);
+                Add(ResourceType.Metal, 5);
+                Add(ResourceType.Fabric, 5);
+                Add(ResourceType.Parts, 5);
+                break;
+            case ActivityType.LootBigWood:
+                Add(ResourceType.Money, 12);
+                break;
+            case ActivityType.SearchFood:
+                Add(ResourceType.Metal, 10);
+                break;
+            case ActivityType.SearchMoney:
+                Add(ResourceType.Wood, 10);
+                break;
+            case ActivityType.SearchWood:
+                Add(ResourceType.Fabric, 10);
+                break;
+            case ActivityType.SearchMetal:
+                Add(ResourceType.Food, 10);
+                break;
+            case ActivityType.SearchFabric:
+                Add(ResourceType.Parts, 10);
+                break;
+            case ActivityType.SearchParts:
+                Add(ResourceType.Money, 10);
+                break;
+            case ActivityType.Salvage:
+                Add(ResourceType.Food, 8);
+                Add(ResourceType.Wood, 8);
+                Add(ResourceType.Fabric, 8);
+                break;
+            case ActivityType.Study:
+                Add(ResourceType.Food, 15);
+                break;
+            case ActivityType.Focus:
+                Add(ResourceType.Parts, 15);
+                break;
+            case ActivityType.CarbLoad:
+                Add(ResourceType.Money, 14);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private static void ValidateActivityAccessible(ReducerContext ctx, Identity participant, Player player, Activity activity)
+    {
+        if (!IsLocationValid(activity.RequiredLocation, player.Location))
+            throw new Exception("This activity is not available at your current location");
+
+        foreach (var criterion in activity.UnlockCriteria)
+        {
+            if (GetStat(ctx, participant, criterion.Stat) < criterion.MinValue)
+                throw new Exception($"Requires {criterion.Stat} {criterion.MinValue}+");
+        }
+    }
+
+    private static void DeductActivityCosts(ReducerContext ctx, Identity participant, List<ActivityCost> costs)
+    {
+        foreach (var cost in costs)
+        {
+            var resource = ctx.Db.ResourceTracker.by_owner_and_type
+                .Filter((Owner: participant, Type: cost.Type)).First();
+            if (resource.Amount < cost.Amount)
+                throw new Exception($"Insufficient {cost.Type}");
+        }
+
+        foreach (var cost in costs)
+        {
+            var resource = ctx.Db.ResourceTracker.by_owner_and_type
+                .Filter((Owner: participant, Type: cost.Type)).First();
+            resource.Amount -= cost.Amount;
+            ctx.Db.ResourceTracker.Id.Update(resource);
+        }
+    }
+
+    [SpacetimeDB.Reducer]
+    public static void UpgradeActivity(ReducerContext ctx, ActivityType type)
+    {
+        if (type == ActivityType.BuildShelter)
+            throw new Exception("This activity cannot be upgraded");
+
+        if (ctx.Db.Player.Identity.Find(ctx.Sender) is not Player player)
+            throw new Exception("Player not found");
+
+        var activity = ctx.Db.Activity.by_activity_participant_type
+            .Filter((Participant: ctx.Sender, Type: type)).First();
+
+        ValidateActivityAccessible(ctx, ctx.Sender, player, activity);
+
+        var costs = new List<ActivityCost>();
+        AppendNextUpgradeCosts(type, activity.Level, costs);
+        if (costs.Count == 0)
+            throw new Exception("This activity has no upgrades");
+
+        DeductActivityCosts(ctx, ctx.Sender, costs);
+
+        activity.Level += 1;
+        ctx.Db.Activity.Id.Update(activity);
     }
 
     [SpacetimeDB.Reducer]
@@ -108,6 +247,80 @@ public static partial class Module
     }
 
 
+    private static StatType GetScavengeStat(ResourceType resourceType) => resourceType switch
+    {
+        ResourceType.Food => StatType.Perception,
+        ResourceType.Fabric => StatType.Intelligence,
+        ResourceType.Metal => StatType.Strength,
+        ResourceType.Money => StatType.Wit,
+        ResourceType.Parts => StatType.Dexterity,
+        ResourceType.Wood => StatType.Endurance,
+        _ => StatType.Perception
+    };
+
+    private static ulong GetScavengeAmountForResource(ReducerContext ctx, Identity participant, ResourceType resourceType) =>
+        (ulong)GetStat(ctx, participant, GetScavengeStat(resourceType));
+
+    private static ResourceType? ActivityTypeToSearchResource(ActivityType type) => type switch
+    {
+        ActivityType.SearchFood => ResourceType.Food,
+        ActivityType.SearchMoney => ResourceType.Money,
+        ActivityType.SearchWood => ResourceType.Wood,
+        ActivityType.SearchMetal => ResourceType.Metal,
+        ActivityType.SearchFabric => ResourceType.Fabric,
+        ActivityType.SearchParts => ResourceType.Parts,
+        _ => null
+    };
+
+    private static void SearchResourceReward(ReducerContext ctx, Identity participant, ResourceType resource, ActivityType searchType)
+    {
+        var level = GetActivityLevel(ctx, participant, searchType);
+        var amount = GetScavengeAmountForResource(ctx, participant, resource) * 5 + level;
+        AddResourceToPlayer(ctx, participant, resource, amount);
+    }
+
+    /// <summary>Backfill Level for rows created before the Level column existed (0 = unset).</summary>
+    public static void EnsureActivityLevels(ReducerContext ctx, Identity participant)
+    {
+        foreach (var act in ctx.Db.Activity.Iter())
+        {
+            if (act.Participant != participant || act.Level != 0)
+                continue;
+            ctx.Db.Activity.Id.Update(act with { Level = 1u });
+        }
+    }
+
+    public static void EnsureSearchActivities(ReducerContext ctx, Identity participant)
+    {
+        (ResourceType Resource, ActivityType Type)[] pairs =
+        [
+            (ResourceType.Food, ActivityType.SearchFood),
+            (ResourceType.Money, ActivityType.SearchMoney),
+            (ResourceType.Wood, ActivityType.SearchWood),
+            (ResourceType.Metal, ActivityType.SearchMetal),
+            (ResourceType.Fabric, ActivityType.SearchFabric),
+            (ResourceType.Parts, ActivityType.SearchParts),
+        ];
+
+        foreach (var (resource, type) in pairs)
+        {
+            if (ctx.Db.Activity.by_activity_participant_type.Filter((Participant: participant, Type: type)).Any())
+                continue;
+
+            var stat = GetScavengeStat(resource);
+            ctx.Db.Activity.Insert(new Activity
+            {
+                Participant = participant,
+                Type = type,
+                Cost = [],
+                DurationMs = 500,
+                RequiredLocation = LocationType.Waste,
+                UnlockCriteria = [new ActivityUnlockCriterion { Stat = stat, MinValue = 5 }],
+                Level = 1
+            });
+        }
+    }
+
     [SpacetimeDB.Reducer]
     public static void Scavenge(ReducerContext ctx, Identity participant)
     {
@@ -115,39 +328,22 @@ public static partial class Module
         var values = Enum.GetValues<ResourceType>();
         var resourceType = values[random.Next(values.Length)];
 
-        var amount = (ulong)1;
-        switch (resourceType) {
-            case ResourceType.Food:
-                amount = (ulong)GetStat(ctx, participant, StatType.Perception);
-                break;
-            case ResourceType.Fabric:
-                amount = (ulong)GetStat(ctx, participant, StatType.Intelligence);
-                break;
-            case ResourceType.Metal:
-                amount = (ulong)GetStat(ctx, participant, StatType.Strength);
-                break;
-            case ResourceType.Money:
-                amount = (ulong)GetStat(ctx, participant, StatType.Wit);
-                break;
-            case ResourceType.Parts:
-                amount = (ulong)GetStat(ctx, participant, StatType.Dexterity);
-                break;
-            case ResourceType.Wood:
-                amount = (ulong)GetStat(ctx, participant, StatType.Endurance);
-                break;
-        }
+        var level = GetActivityLevel(ctx, participant, ActivityType.Scavenge);
+        var amount = GetScavengeAmountForResource(ctx, participant, resourceType) + level;
         AddResourceToPlayer(ctx, participant, resourceType, amount);
     }
 
     [SpacetimeDB.Reducer]
     public static void LootBigWood(ReducerContext ctx, Identity participant) {
-        AddResourceToPlayer(ctx, participant, ResourceType.Food, 100);
+        var level = GetActivityLevel(ctx, participant, ActivityType.LootBigWood);
+        AddResourceToPlayer(ctx, participant, ResourceType.Food, 100 + level);
     }
 
     [SpacetimeDB.Reducer]
     public static void Focus(ReducerContext ctx, Identity participant) {
+        var level = (int)GetActivityLevel(ctx, participant, ActivityType.Focus);
         var currentPerception = GetStat(ctx, participant, StatType.Perception);
-        SetStat(ctx, participant, StatType.Perception, currentPerception + 2);
+        SetStat(ctx, participant, StatType.Perception, currentPerception + 2 + level);
     }
 
     private static void CarbLoad(ReducerContext ctx, Identity participant) {
@@ -176,8 +372,8 @@ public static partial class Module
             statToUpgrade = stats[random.Next(stats.Length)];
         }
 
-        // Upgrade the stat
-        SetStat(ctx, participant, statToUpgrade, GetStat(ctx, participant, statToUpgrade) + 1);
+        var carbLevel = (int)GetActivityLevel(ctx, participant, ActivityType.CarbLoad);
+        SetStat(ctx, participant, statToUpgrade, GetStat(ctx, participant, statToUpgrade) + 1 + carbLevel);
 
         var food = ctx.Db.ResourceTracker.by_owner_and_type.Filter((Owner: participant, Type: ResourceType.Food)).First();
         food.Amount -= upgradeCost;
@@ -202,7 +398,8 @@ public static partial class Module
         {
             statToUpgrade = stats[random.Next(stats.Length)];
         }
-        SetStat(ctx, participant, statToUpgrade, GetStat(ctx, participant, statToUpgrade) + 1);
+        var carbLevel = (int)GetActivityLevel(ctx, participant, ActivityType.CarbLoad);
+        SetStat(ctx, participant, statToUpgrade, GetStat(ctx, participant, statToUpgrade) + 1 + carbLevel);
 
         var totalStats = (ulong)(
             GetStat(ctx, participant, StatType.Dexterity) +
@@ -221,8 +418,9 @@ public static partial class Module
     }
 
     private static void SalvageReward(ReducerContext ctx, Identity participant) {
-        var metalAmount = (ulong)Math.Max(1, GetStat(ctx, participant, StatType.Dexterity));
-        var moneyAmount = (ulong)Math.Max(1, GetStat(ctx, participant, StatType.Wit));
+        var level = GetActivityLevel(ctx, participant, ActivityType.Salvage);
+        var metalAmount = (ulong)Math.Max(1, GetStat(ctx, participant, StatType.Dexterity)) + level;
+        var moneyAmount = (ulong)Math.Max(1, GetStat(ctx, participant, StatType.Wit)) + level;
         AddResourceToPlayer(ctx, participant, ResourceType.Metal, metalAmount);
         AddResourceToPlayer(ctx, participant, ResourceType.Money, moneyAmount);
     }
@@ -270,8 +468,9 @@ public static partial class Module
     }
 
     private static void Study(ReducerContext ctx, Identity participant) {
+        var level = (int)GetActivityLevel(ctx, participant, ActivityType.Study);
         SetStat(ctx, participant, StatType.Intelligence,
-            GetStat(ctx, participant, StatType.Intelligence) + 3);
+            GetStat(ctx, participant, StatType.Intelligence) + 3 + level);
     }
 
     private static ulong GetEffectiveDurationMs(ulong baseDurationMs, int statValue)
@@ -300,8 +499,7 @@ public static partial class Module
         var activity = ctx.Db.Activity.by_activity_participant_type
             .Filter((Participant: ctx.Sender, Type: type)).First();
 
-        if (!IsLocationValid(activity.RequiredLocation, player.Location))
-            throw new Exception("This activity is not available at your current location");
+        ValidateActivityAccessible(ctx, ctx.Sender, player, activity);
 
         foreach (var cost in activity.Cost) {
             var resource = ctx.Db.ResourceTracker.by_owner_and_type
@@ -365,6 +563,15 @@ public static partial class Module
                 break;
             case ActivityType.Salvage:
                 SalvageReward(ctx, task.Participant);
+                break;
+            case ActivityType.SearchFood:
+            case ActivityType.SearchMoney:
+            case ActivityType.SearchWood:
+            case ActivityType.SearchMetal:
+            case ActivityType.SearchFabric:
+            case ActivityType.SearchParts:
+                if (ActivityTypeToSearchResource(task.Type) is ResourceType searchResource)
+                    SearchResourceReward(ctx, task.Participant, searchResource, task.Type);
                 break;
             default:
                 throw new Exception("Unknown activity type");

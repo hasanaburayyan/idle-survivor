@@ -45,7 +45,9 @@ public static partial class Module {
             Type = ActivityType.Scavenge,
             Cost = [],
             DurationMs = 500,
-            RequiredLocation = LocationType.Waste
+            RequiredLocation = LocationType.Waste,
+            UnlockCriteria = [],
+            Level = 1
         });
 
         ctx.Db.Activity.Insert(new Activity {
@@ -55,7 +57,9 @@ public static partial class Module {
                 new ActivityCost{Type = ResourceType.Food, Amount = 60}
             ],
             DurationMs = 2000,
-            RequiredLocation = null
+            RequiredLocation = null,
+            UnlockCriteria = [],
+            Level = 1
         });
 
         ctx.Db.Activity.Insert(new Activity {
@@ -67,8 +71,12 @@ public static partial class Module {
                 new ActivityCost{Type = ResourceType.Fabric, Amount = 20}
             ],
             DurationMs = 10_000,
-            RequiredLocation = LocationType.Waste
+            RequiredLocation = LocationType.Waste,
+            UnlockCriteria = [],
+            Level = 1
         });
+
+        EnsureSearchActivities(ctx, ctx.Sender);
     }
 
     [SpacetimeDB.Reducer]

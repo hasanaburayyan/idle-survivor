@@ -335,6 +335,24 @@ public partial class Waste : Node2D
 				set.Add(StatType.Dexterity);
 				set.Add(StatType.Wit);
 				break;
+			case ActivityType.SearchFood:
+				set.Add(StatType.Perception);
+				break;
+			case ActivityType.SearchFabric:
+				set.Add(StatType.Intelligence);
+				break;
+			case ActivityType.SearchMetal:
+				set.Add(StatType.Strength);
+				break;
+			case ActivityType.SearchMoney:
+				set.Add(StatType.Wit);
+				break;
+			case ActivityType.SearchParts:
+				set.Add(StatType.Dexterity);
+				break;
+			case ActivityType.SearchWood:
+				set.Add(StatType.Endurance);
+				break;
 			case ActivityType.LootBigWood:
 			case ActivityType.BuildShelter:
 				break;
@@ -521,24 +539,23 @@ public partial class Waste : Node2D
 		if (isShelterLoc)
 			RefreshCraftingMenu();
 
-		RefreshActivityVisibility(loc);
+		RefreshActivityVisibility();
 		RefreshRelevantLocationContext();
 	}
 
-	private void RefreshActivityVisibility(LocationType loc)
+	private void RefreshActivityVisibility()
 	{
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		foreach (var (id, node) in _activityNodes)
 		{
-			var activity = conn.Db.Activity.Id.Find(id);
-			if (activity is not null)
+			if (conn.Db.Activity.Id.Find(id) is null)
+				node.Visible = false;
+			else
 			{
-				node.Visible = IsLocationValid(activity.RequiredLocation, loc);
+				node.RefreshFormat();
 				if (node.Visible)
 					node.TryResumeAutoRepeat();
 			}
-			else
-				node.Visible = false;
 		}
 	}
 
@@ -550,10 +567,7 @@ public partial class Waste : Node2D
 		activitySelection.InitActivityTracking(activity.Id);
 		_activityNodes[activity.Id] = activitySelection;
 
-		var conn = SpacetimeNetworkManager.Instance.Conn;
-		var currentPlayer = conn.Db.Player.Identity.Find(SpacetimeNetworkManager.Instance.LocalIdentity);
-		if (currentPlayer is not null)
-			activitySelection.Visible = IsLocationValid(activity.RequiredLocation, currentPlayer.Location);
+		// Visibility (location + unlock criteria) is applied in Activity.Format via InitActivityTracking.
 	}
 
 	private void RefreshCraftingMenu()

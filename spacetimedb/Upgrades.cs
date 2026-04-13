@@ -49,7 +49,9 @@ public static partial class Module {
                     Type = ActivityType.Study,
                     Cost = new List<ActivityCost>(),
                     DurationMs = GetEffectiveDurationMs(30000, value),
-                    RequiredLocation = null
+                    RequiredLocation = null,
+                    UnlockCriteria = [],
+                    Level = 1
                 });
             }
         }
@@ -63,7 +65,9 @@ public static partial class Module {
                     Type = ActivityType.Focus,
                     Cost = new List<ActivityCost>(),
                     DurationMs = GetEffectiveDurationMs(10_000, value),
-                    RequiredLocation = null
+                    RequiredLocation = null,
+                    UnlockCriteria = [],
+                    Level = 1
                 });
             }
         }

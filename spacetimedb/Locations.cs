@@ -179,7 +179,9 @@ public static partial class Module
                             new ActivityCost { Type = ResourceType.Parts, Amount = 10 }
                         },
                         DurationMs = 3000,
-                        RequiredLocation = LocationType.Shelter
+                        RequiredLocation = LocationType.Shelter,
+                        UnlockCriteria = [],
+                        Level = 1
                     });
                 }
                 break;

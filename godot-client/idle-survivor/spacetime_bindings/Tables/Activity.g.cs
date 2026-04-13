@@ -65,6 +65,8 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Activity, System.Collections.Generic.List<ActivityCost>> Cost { get; }
         public global::SpacetimeDB.Col<Activity, ulong> DurationMs { get; }
         public global::SpacetimeDB.Col<Activity, LocationType> RequiredLocation { get; }
+        public global::SpacetimeDB.Col<Activity, System.Collections.Generic.List<ActivityUnlockCriterion>> UnlockCriteria { get; }
+        public global::SpacetimeDB.Col<Activity, uint> Level { get; }
 
         public ActivityCols(string tableName)
         {
@@ -74,6 +76,8 @@ namespace SpacetimeDB.Types
             Cost = new global::SpacetimeDB.Col<Activity, System.Collections.Generic.List<ActivityCost>>(tableName, "cost");
             DurationMs = new global::SpacetimeDB.Col<Activity, ulong>(tableName, "duration_ms");
             RequiredLocation = new global::SpacetimeDB.Col<Activity, LocationType>(tableName, "required_location");
+            UnlockCriteria = new global::SpacetimeDB.Col<Activity, System.Collections.Generic.List<ActivityUnlockCriterion>>(tableName, "unlock_criteria");
+            Level = new global::SpacetimeDB.Col<Activity, uint>(tableName, "level");
         }
     }
 
