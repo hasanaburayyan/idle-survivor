@@ -7,17 +7,19 @@ using System.Linq;
 public partial class Waste : Node2D
 {
 	private SpacetimeDB.Types.Player player;
-	private Marker2D PlayerSpawnPosition;
-	private VBoxContainer LeftSide;
-	private PlayerStatsPanel StatsPanel;
-	private VBoxContainer ActivitiesPanel;
+	private Marker2D _playerSpawnPosition;
+	private Node2D _worldRoot;
+	private PlayfieldBackground _playfieldBackground;
+	private VBoxContainer _leftSide;
+	private PlayerStatsPanel _statsPanel;
+	private VBoxContainer _activitiesPanel;
 	private Player _localPlayerNode;
-	private GameMenu _gameMenu;
+	private GuildSocialPanel _guildSocialPanel;
+	private CharacterProfilePanel _characterProfilePanel;
 
-	private PackedScene PlayerScene = GD.Load<PackedScene>("uid://cl6yviutw6arx");
-	private PackedScene ResourceTrackingScene = GD.Load<PackedScene>("uid://bmw2ixd8nj1t8");
-	private PackedScene ActivityScene = GD.Load<PackedScene>("uid://bjckoiwufesye");
-	private PackedScene GameMenuScene = GD.Load<PackedScene>("res://scenes/menu/GameMenu.tscn");
+	private PackedScene _playerScene = GD.Load<PackedScene>("uid://cl6yviutw6arx");
+	private PackedScene _resourceTrackingScene = GD.Load<PackedScene>("uid://bmw2ixd8nj1t8");
+	private PackedScene _activityScene = GD.Load<PackedScene>("uid://bjckoiwufesye");
 
 	private Dictionary<SpacetimeDB.Identity, Player> _guildMemberSprites = new();
 	private bool _inGuildHall;
@@ -33,30 +35,75 @@ public partial class Waste : Node2D
 
 	private Dictionary<ulong, Activity> _activityNodes = new();
 
+	private ColorRect _popupBackdrop;
+	private Control _characterPopup;
+	private Control _inventoryPopup;
+	private Control _socialPopup;
+	private Control _systemPopup;
+
+	private PanelContainer _modalCharacter;
+	private PanelContainer _modalInventory;
+	private PanelContainer _modalSocial;
+	private PanelContainer _modalSystem;
+
+	private Button _btnCharacter;
+	private Button _btnInventory;
+	private Button _btnSocial;
+	private Button _btnSystem;
+
+	private int? _openPopupIndex;
+
 	public override void _Ready()
 	{
-		PlayerSpawnPosition = GetNode<Marker2D>("%PlayerSpawnLocation");
-		LeftSide = GetNode<VBoxContainer>("%LeftSide");
-		StatsPanel = GetNode<PlayerStatsPanel>("%PlayerStatsPanel");
-		ActivitiesPanel = GetNode<VBoxContainer>("%Activities");
+		_worldRoot = GetNode<Node2D>("%WorldRoot");
+		_playfieldBackground = GetNode<PlayfieldBackground>("%PlayfieldBackground");
+		_playerSpawnPosition = GetNode<Marker2D>("%PlayerSpawnLocation");
+		_leftSide = GetNode<VBoxContainer>("%LeftSide");
+		_statsPanel = GetNode<PlayerStatsPanel>("%PlayerStatsPanel");
+		_activitiesPanel = GetNode<VBoxContainer>("%Activities");
+		_guildSocialPanel = GetNode<GuildSocialPanel>("%GuildSocialPanel");
+		_characterProfilePanel = GetNode<CharacterProfilePanel>("%CharacterProfilePanel");
+
+		_popupBackdrop = GetNode<ColorRect>("%PopupBackdrop");
+		_characterPopup = GetNode<Control>("%CharacterPopup");
+		_inventoryPopup = GetNode<Control>("%InventoryPopup");
+		_socialPopup = GetNode<Control>("%SocialPopup");
+		_systemPopup = GetNode<Control>("%SystemPopup");
+
+		_modalCharacter = GetNode<PanelContainer>("CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel");
+		_modalInventory = GetNode<PanelContainer>("CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel");
+		_modalSocial = GetNode<PanelContainer>("CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel");
+		_modalSystem = GetNode<PanelContainer>("CanvasLayerPopups/SystemPopup/CenterSystem/SystemPanel");
+
+		_btnCharacter = GetNode<Button>("%CharacterMenuButton");
+		_btnInventory = GetNode<Button>("%InventoryMenuButton");
+		_btnSocial = GetNode<Button>("%SocialMenuButton");
+		_btnSystem = GetNode<Button>("%SystemMenuButton");
+
+		_btnCharacter.Pressed += () => TogglePopup(0);
+		_btnInventory.Pressed += () => TogglePopup(1);
+		_btnSocial.Pressed += () => TogglePopup(2);
+		_btnSystem.Pressed += () => TogglePopup(3);
+
+		SetProcessInput(true);
 
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		player = conn.Db.Player.Identity.Find(SpacetimeNetworkManager.Instance.LocalIdentity);
 
-		_localPlayerNode = PlayerScene.Instantiate<Player>();
-		_localPlayerNode.Position = PlayerSpawnPosition.Position;
+		_localPlayerNode = _playerScene.Instantiate<Player>();
+		AlignSpawnToPlayfield();
 		_localPlayerNode.ZIndex = 10;
-		AddChild(_localPlayerNode);
+		_worldRoot.AddChild(_localPlayerNode);
 		_localPlayerNode.SetName(player.DisplayName);
 
-		StatsPanel.InitStats(SpacetimeNetworkManager.Instance.LocalIdentity);
+		_statsPanel.InitStats(SpacetimeNetworkManager.Instance.LocalIdentity);
 
 		var playerResources = conn.Db.ResourceTracker.Owner.Filter(SpacetimeNetworkManager.Instance.LocalIdentity);
 		foreach (var resource in playerResources)
 		{
-			var resourceTracker = ResourceTrackingScene.Instantiate<ResourceTracker>();
+			var resourceTracker = _resourceTrackingScene.Instantiate<ResourceTracker>();
 			resourceTracker.Name = resource.Id.ToString();
-			LeftSide.AddChild(resourceTracker);
+			_leftSide.AddChild(resourceTracker);
 			resourceTracker.InitResourceTracking(resource.Id);
 		}
 
@@ -70,24 +117,126 @@ public partial class Waste : Node2D
 		conn.Db.Activity.OnInsert += OnActivityInsert;
 		conn.Db.Activity.OnDelete += OnActivityDelete;
 
-		_gameMenu = GameMenuScene.Instantiate<GameMenu>();
-		AddChild(_gameMenu);
-		_gameMenu.GuildSessionChanged += OnGuildSessionChanged;
+		_guildSocialPanel.GuildSessionChanged += OnGuildSessionChanged;
 
 		conn.Db.Player.OnUpdate += OnPlayerUpdate;
 
 		conn.Db.PlayerShelter.OnInsert += OnPlayerShelterInsert;
 		conn.Db.PlayerStructure.OnInsert += OnPlayerStructureInsert;
 
+		GetViewport().SizeChanged += OnViewportSizeChanged;
+
 		BuildLocationBar();
 		BuildCraftingPanel();
 		RefreshLocationUI();
 	}
 
+	public override void _Input(InputEvent @event)
+	{
+		if (_openPopupIndex is null) return;
+		if (@event is not InputEventMouseButton mb || !mb.Pressed) return;
+
+		var shell = GetOpenModalShell();
+		if (shell is null) return;
+		if (shell.GetGlobalRect().HasPoint(mb.GlobalPosition))
+			return;
+
+		CloseAllPopups();
+		GetViewport().SetInputAsHandled();
+	}
+
+	private PanelContainer? GetOpenModalShell() => _openPopupIndex switch
+	{
+		0 => _modalCharacter,
+		1 => _modalInventory,
+		2 => _modalSocial,
+		3 => _modalSystem,
+		_ => null,
+	};
+
+	public override void _UnhandledInput(InputEvent @event)
+	{
+		if (@event.IsActionPressed("ui_cancel"))
+		{
+			if (_openPopupIndex is not null)
+			{
+				CloseAllPopups();
+				GetViewport().SetInputAsHandled();
+			}
+			return;
+		}
+
+		if (@event.IsActionPressed("menu_toggle"))
+		{
+			if (_openPopupIndex == 0)
+				CloseAllPopups();
+			else
+				OpenPopup(0);
+			GetViewport().SetInputAsHandled();
+		}
+		else if (@event.IsActionPressed("social_toggle"))
+		{
+			if (_openPopupIndex == 2)
+				CloseAllPopups();
+			else
+				OpenPopup(2);
+			GetViewport().SetInputAsHandled();
+		}
+	}
+
+	private void TogglePopup(int index)
+	{
+		if (_openPopupIndex == index)
+			CloseAllPopups();
+		else
+			OpenPopup(index);
+	}
+
+	private void OpenPopup(int index)
+	{
+		_openPopupIndex = index;
+		_popupBackdrop.Visible = true;
+		_characterPopup.Visible = index == 0;
+		_inventoryPopup.Visible = index == 1;
+		_socialPopup.Visible = index == 2;
+		_systemPopup.Visible = index == 3;
+
+		switch (index)
+		{
+			case 0:
+				_characterProfilePanel.RefreshOnOpen();
+				break;
+			case 2:
+				_guildSocialPanel.RefreshOnOpen();
+				break;
+		}
+	}
+
+	private void CloseAllPopups()
+	{
+		_openPopupIndex = null;
+		_popupBackdrop.Visible = false;
+		_characterPopup.Visible = false;
+		_inventoryPopup.Visible = false;
+		_socialPopup.Visible = false;
+		_systemPopup.Visible = false;
+	}
+
+	private void OnViewportSizeChanged()
+	{
+		AlignSpawnToPlayfield();
+	}
+
+	private void AlignSpawnToPlayfield()
+	{
+		var r = _worldRoot.GetViewport().GetVisibleRect();
+		_playerSpawnPosition.Position = new Vector2(r.Size.X * 0.5f, r.Size.Y * 0.82f);
+		if (_localPlayerNode is not null && IsInstanceValid(_localPlayerNode))
+			_localPlayerNode.Position = _playerSpawnPosition.Position;
+	}
+
 	private void BuildLocationBar()
 	{
-		var locationBar = GetNode<HBoxContainer>("%LocationBar");
-
 		_locationLabel = GetNode<Label>("%LocationLabel");
 		_travelWasteButton = GetNode<Button>("%TravelWasteButton");
 		_travelShelterButton = GetNode<Button>("%TravelShelterButton");
@@ -113,6 +262,14 @@ public partial class Waste : Node2D
 		_ => loc.ToString()
 	};
 
+	private static Color LocationPlayfieldColor(LocationType loc) => loc switch
+	{
+		LocationType.Waste => new Color(0.45f, 0.45f, 0.48f),
+		LocationType.Shelter => new Color(0.42f, 0.30f, 0.22f),
+		LocationType.GuildHall => new Color(0.72f, 0.62f, 0.28f),
+		_ => new Color(0.35f, 0.35f, 0.38f),
+	};
+
 	private static bool IsLocationValid(LocationType? required, LocationType playerLoc) =>
 		required is null ||
 		required == playerLoc ||
@@ -127,6 +284,7 @@ public partial class Waste : Node2D
 
 		var loc = currentPlayer.Location;
 		_locationLabel.Text = $"Location: {LocationDisplayName(loc)}";
+		_playfieldBackground.SetColor(LocationPlayfieldColor(loc));
 
 		_travelWasteButton.Visible = loc != LocationType.Waste;
 		_travelShelterButton.Visible = loc != LocationType.Shelter
@@ -161,9 +319,9 @@ public partial class Waste : Node2D
 
 	private void AddActivityNode(SpacetimeDB.Types.Activity activity)
 	{
-		var activitySelection = ActivityScene.Instantiate<Activity>();
+		var activitySelection = _activityScene.Instantiate<Activity>();
 		activitySelection.Name = activity.Id.ToString();
-		ActivitiesPanel.AddChild(activitySelection);
+		_activitiesPanel.AddChild(activitySelection);
 		activitySelection.InitActivityTracking(activity.Id);
 		_activityNodes[activity.Id] = activitySelection;
 
@@ -211,7 +369,7 @@ public partial class Waste : Node2D
 			{
 				var buildBtn = new Button();
 				buildBtn.Text = "Build";
-				buildBtn.CustomMinimumSize = new Godot.Vector2(80, 28);
+				buildBtn.CustomMinimumSize = new Vector2(80, 28);
 				var capturedId = definition.Id;
 				buildBtn.Pressed += () => conn.Reducers.BuildStructure(capturedId);
 				row.AddChild(buildBtn);
@@ -262,13 +420,14 @@ public partial class Waste : Node2D
 	{
 		if (_guildMemberSprites.ContainsKey(playerId)) return;
 
-		var sprite = PlayerScene.Instantiate<Player>();
-		var viewport = GetViewportRect();
-		float x = _rng.RandfRange(100, viewport.Size.X - 100);
-		float y = PlayerSpawnPosition.Position.Y + _rng.RandfRange(-20, 20);
+		var sprite = _playerScene.Instantiate<Player>();
+		var viewport = _worldRoot.GetViewport().GetVisibleRect();
+		float margin = 80f;
+		float x = _rng.RandfRange(margin, viewport.Size.X - margin);
+		float y = _playerSpawnPosition.Position.Y + _rng.RandfRange(-20, 20);
 		sprite.Position = new Vector2(x, y);
 		sprite.ZIndex = 0;
-		AddChild(sprite);
+		_worldRoot.AddChild(sprite);
 		sprite.SetName(displayName);
 		_guildMemberSprites[playerId] = sprite;
 	}
@@ -353,9 +512,9 @@ public partial class Waste : Node2D
 		if (tracker.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
 			return;
 
-		var resourceTracker = ResourceTrackingScene.Instantiate<ResourceTracker>();
+		var resourceTracker = _resourceTrackingScene.Instantiate<ResourceTracker>();
 		resourceTracker.Name = tracker.Id.ToString();
-		LeftSide.AddChild(resourceTracker);
+		_leftSide.AddChild(resourceTracker);
 		resourceTracker.InitResourceTracking(tracker.Id);
 	}
 

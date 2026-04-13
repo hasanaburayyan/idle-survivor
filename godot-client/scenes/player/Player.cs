@@ -29,7 +29,7 @@ public partial class Player : CharacterBody2D
 	public Label DisplayNameLabel;
 	private AnimatedSprite2D _sprite;
 	private AnimState _state = AnimState.Moving;
-	private float _direction = 1f;
+	private Vector2 _moveDir = Vector2.Right;
 	private float _stateTimer;
 	private RandomNumberGenerator _rng = new();
 	private bool _animationsLoaded;
@@ -103,30 +103,37 @@ public partial class Player : CharacterBody2D
 	private void ProcessMoving(double delta)
 	{
 		var viewport = GetViewportRect();
-		float margin = FrameWidth * 0.5f;
-		float leftBound = margin;
-		float rightBound = viewport.Size.X - margin;
+		float halfW = FrameWidth * 0.5f;
+		float halfH = FrameHeight * 0.5f;
+		float leftBound = halfW;
+		float rightBound = viewport.Size.X - halfW;
+		float topBound = halfH;
+		float bottomBound = viewport.Size.Y - halfH;
 
-		Position += new Vector2(_direction * MoveSpeed * (float)delta, 0);
-
-		float topBound = viewport.Size.Y * 0.55f;
-		float bottomBound = viewport.Size.Y - FrameHeight * 0.5f;
-		Position = new Vector2(
-			Position.X,
-			Math.Clamp(Position.Y, topBound, bottomBound)
-		);
+		Position += _moveDir * MoveSpeed * (float)delta;
 
 		if (Position.X >= rightBound)
 		{
 			Position = new Vector2(rightBound, Position.Y);
-			_direction = -1f;
-			_sprite.FlipH = true;
+			_moveDir.X *= -1f;
+			_sprite.FlipH = _moveDir.X < 0f;
 		}
 		else if (Position.X <= leftBound)
 		{
 			Position = new Vector2(leftBound, Position.Y);
-			_direction = 1f;
-			_sprite.FlipH = false;
+			_moveDir.X *= -1f;
+			_sprite.FlipH = _moveDir.X < 0f;
+		}
+
+		if (Position.Y >= bottomBound)
+		{
+			Position = new Vector2(Position.X, bottomBound);
+			_moveDir.Y *= -1f;
+		}
+		else if (Position.Y <= topBound)
+		{
+			Position = new Vector2(Position.X, topBound);
+			_moveDir.Y *= -1f;
 		}
 
 		if (_stateTimer <= 0)
@@ -142,7 +149,20 @@ public partial class Player : CharacterBody2D
 	{
 		_state = AnimState.Moving;
 		_stateTimer = _rng.RandfRange(3f, 7f);
+		_moveDir = RandomUnitDirection();
+		_sprite.FlipH = _moveDir.X < 0f;
 		PlayAnim("run");
+	}
+
+	private Vector2 RandomUnitDirection()
+	{
+		for (int i = 0; i < 8; i++)
+		{
+			var v = new Vector2(_rng.RandfRange(-1f, 1f), _rng.RandfRange(-1f, 1f));
+			if (v.LengthSquared() > 0.0001f)
+				return v.Normalized();
+		}
+		return Vector2.Right;
 	}
 
 	private void EnterIdle()
