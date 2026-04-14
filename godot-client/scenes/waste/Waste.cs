@@ -127,6 +127,7 @@ public partial class Waste : Node2D
 		_worldRoot.AddChild(_localPlayerNode);
 		_localPlayerNode.SetName(player.DisplayName);
 		_localPlayerNode.BindActivityDisplay(SpacetimeNetworkManager.Instance.LocalIdentity);
+		_localPlayerNode.KillRequested += OnPlayerKillRequested;
 
 		var groundLayer = _worldRoot.GetNode<Node2D>("PlayfieldMap/TileMapLayer");
 		_mapScale = _worldRoot.GetNode<Node2D>("PlayfieldMap").Scale;
@@ -1032,6 +1033,26 @@ public partial class Waste : Node2D
 		zombie.BuildingLayer = _buildingLayer;
 		zombie.Killed += () => OnZombieKilled(zombie.Position);
 		_worldRoot.AddChild(zombie);
+	}
+
+	private void OnPlayerKillRequested()
+	{
+		var alive = new System.Collections.Generic.List<Zombie>();
+		foreach (var child in _worldRoot.GetChildren())
+		{
+			if (child is Zombie z && !z.IsDying)
+				alive.Add(z);
+		}
+		if (alive.Count == 0)
+			return;
+
+		var playerPos = _localPlayerNode.Position;
+		alive.Sort((a, b) =>
+			a.Position.DistanceSquaredTo(playerPos).CompareTo(b.Position.DistanceSquaredTo(playerPos)));
+
+		int pool = Math.Min(alive.Count, 10);
+		var target = alive[_rng.RandiRange(0, pool - 1)];
+		target.Die();
 	}
 
 	private void OnZombieKilled(Vector2 deathPosition)

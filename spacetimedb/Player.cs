@@ -51,6 +51,7 @@ public static partial class Module {
         SetStat(ctx, ctx.Sender, StatType.Wit, 1);
         SetStat(ctx, ctx.Sender, StatType.Endurance, 1);
         SetStat(ctx, ctx.Sender, StatType.Dexterity, 1);
+        SetStat(ctx, ctx.Sender, StatType.KillSpeed, 1);
 
         StartWasteSchedules(ctx, ctx.Sender);
 

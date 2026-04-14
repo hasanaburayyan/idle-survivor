@@ -28,7 +28,11 @@ public partial class Player : CharacterBody2D
 
 	private enum AnimState { Moving, Idle, Action }
 
+	[Signal]
+	public delegate void KillRequestedEventHandler();
+
 	public bool IsLocal { get; set; }
+	public float KillIntervalSeconds { get; set; } = 2.0f;
 
 	public Label DisplayNameLabel;
 	public Label ActivityLabel;
@@ -39,6 +43,7 @@ public partial class Player : CharacterBody2D
 	private AnimState _state = AnimState.Moving;
 	private Vector2 _moveDir = Vector2.Right;
 	private float _stateTimer;
+	private float _attackTimer;
 	private RandomNumberGenerator _rng = new();
 	private bool _animationsLoaded;
 
@@ -50,10 +55,8 @@ public partial class Player : CharacterBody2D
 		_sprite = GetNode<AnimatedSprite2D>("AnimatedSprite2D");
 		LoadAnimations();
 		_sprite.AnimationFinished += OnAnimationFinished;
-		if (IsLocal)
-			EnterIdle();
-		else
-			EnterMoving();
+		_attackTimer = KillIntervalSeconds;
+		EnterMoving();
 	}
 
 	public override void _ExitTree()
@@ -201,13 +204,20 @@ public partial class Player : CharacterBody2D
 	{
 		if (!_animationsLoaded) return;
 
+		_stateTimer -= (float)delta;
+
 		if (IsLocal)
 		{
-			ProcessLocalInput();
-			return;
+			_attackTimer -= (float)delta;
+			if (_attackTimer <= 0f)
+			{
+				_attackTimer = KillIntervalSeconds;
+				_state = AnimState.Action;
+				string[] attacks = { "attack1", "attack2", "attack3" };
+				PlayAnim(attacks[_rng.RandiRange(0, attacks.Length - 1)]);
+				EmitSignal(SignalName.KillRequested);
+			}
 		}
-
-		_stateTimer -= (float)delta;
 
 		switch (_state)
 		{
@@ -221,37 +231,6 @@ public partial class Player : CharacterBody2D
 			case AnimState.Action:
 				break;
 		}
-	}
-
-	private void ProcessLocalInput()
-	{
-		var input = Vector2.Zero;
-		if (Input.IsKeyPressed(Key.W) || Input.IsActionPressed("ui_up")) input.Y -= 1;
-		if (Input.IsKeyPressed(Key.S) || Input.IsActionPressed("ui_down")) input.Y += 1;
-		if (Input.IsKeyPressed(Key.A) || Input.IsActionPressed("ui_left")) input.X -= 1;
-		if (Input.IsKeyPressed(Key.D) || Input.IsActionPressed("ui_right")) input.X += 1;
-
-		if (input.LengthSquared() > 0)
-		{
-			input = input.Normalized();
-			Velocity = input * MoveSpeed;
-			_sprite.FlipH = input.X < 0f;
-			if (_state != AnimState.Moving)
-			{
-				_state = AnimState.Moving;
-				PlayAnim("run");
-			}
-		}
-		else
-		{
-			Velocity = Vector2.Zero;
-			if (_state != AnimState.Idle)
-			{
-				_state = AnimState.Idle;
-				PlayAnim("idle");
-			}
-		}
-		MoveAndSlide();
 	}
 
 	private void ProcessAiMoving()
