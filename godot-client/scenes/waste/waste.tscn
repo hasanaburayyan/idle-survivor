@@ -198,6 +198,7 @@ stretch = true
 [node name="SubViewport" type="SubViewport" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/SubViewportContainer" unique_id=463187798]
 unique_name_in_owner = true
 handle_input_locally = false
+physics_object_picking = true
 size = Vector2i(721, 358)
 render_target_update_mode = 4
 

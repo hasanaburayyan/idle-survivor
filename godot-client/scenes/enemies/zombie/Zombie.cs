@@ -11,9 +11,13 @@ public partial class Zombie : CharacterBody2D
 	private const float DriftAngleMax = 25f;
 	private const float NearTileThreshold = 1.5f;
 
-	private enum SeekState { Walking, Idle }
+	private enum SeekState { Walking, Idle, Dying }
+
+	[Signal]
+	public delegate void KilledEventHandler();
 
 	public TileMapLayer BuildingLayer { get; set; }
+	public bool IsDying => _state == SeekState.Dying;
 
 	private AnimatedSprite2D _sprite;
 	private RandomNumberGenerator _rng = new();
@@ -26,11 +30,48 @@ public partial class Zombie : CharacterBody2D
 	{
 		_sprite = GetNode<AnimatedSprite2D>("AnimatedSprite2D");
 		_moveSpeed = _rng.RandfRange(MoveSpeedMin, MoveSpeedMax);
+		InputPickable = true;
 		EnterIdle();
+	}
+
+	public override void _InputEvent(Viewport viewport, InputEvent @event, int shapeIdx)
+	{
+		if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
+		{
+			Die();
+			viewport.SetInputAsHandled();
+		}
+	}
+
+	public void Die()
+	{
+		if (_state == SeekState.Dying)
+			return;
+
+		_state = SeekState.Dying;
+		Velocity = Vector2.Zero;
+
+		string suffix;
+		if (Mathf.Abs(_moveDir.X) >= Mathf.Abs(_moveDir.Y))
+			suffix = _moveDir.X < 0 ? "left" : "right";
+		else
+			suffix = _rng.Randi() % 2 == 0 ? "left" : "right";
+
+		_sprite.Play($"death_{suffix}");
+		_sprite.AnimationFinished += OnDeathAnimationFinished;
+	}
+
+	private void OnDeathAnimationFinished()
+	{
+		EmitSignal(SignalName.Killed);
+		QueueFree();
 	}
 
 	public override void _PhysicsProcess(double delta)
 	{
+		if (_state == SeekState.Dying)
+			return;
+
 		_stateTimer -= (float)delta;
 
 		switch (_state)

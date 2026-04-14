@@ -9,7 +9,8 @@ public enum StatType : byte {
     Perception,
     Wit,
     Endurance,
-    Dexterity
+    Dexterity,
+    ZombiesKilled
 }
 
 public static partial class Module {

@@ -1,6 +1,20 @@
 using SpacetimeDB;
 
 public static partial class Module {
+    [SpacetimeDB.Table(Accessor = "KillLoot", Public = true)]
+    public partial struct KillLoot
+    {
+        [SpacetimeDB.PrimaryKey]
+        [SpacetimeDB.AutoInc]
+        public ulong Id;
+
+        [SpacetimeDB.Index.BTree]
+        public Identity Owner;
+
+        public ResourceType Resource;
+        public ulong Amount;
+    }
+
     [SpacetimeDB.Table(Accessor = "Player", Public = true)]
     public partial struct Player
     {
@@ -99,5 +113,33 @@ public static partial class Module {
 
         player.DisplayName = name;
         ctx.Db.Player.Identity.Update(player);
+    }
+
+    [SpacetimeDB.Reducer]
+    public static void KillZombie(ReducerContext ctx)
+    {
+        var current = GetStat(ctx, ctx.Sender, StatType.ZombiesKilled);
+        SetStat(ctx, ctx.Sender, StatType.ZombiesKilled, current + 1);
+
+        var random = new Random();
+        var values = Enum.GetValues<ResourceType>();
+        var resourceType = values[random.Next(values.Length)];
+        var level = GetActivityLevel(ctx, ctx.Sender, ActivityType.Scavenge);
+        var amount = GetScavengeAmountForResource(ctx, ctx.Sender, resourceType) + level;
+        AddResourceToPlayer(ctx, ctx.Sender, resourceType, amount);
+
+        ctx.Db.KillLoot.Insert(new KillLoot
+        {
+            Id = 0,
+            Owner = ctx.Sender,
+            Resource = resourceType,
+            Amount = amount
+        });
+    }
+
+    [SpacetimeDB.Reducer]
+    public static void AckKillLoot(ReducerContext ctx, ulong lootId)
+    {
+        ctx.Db.KillLoot.Id.Delete(lootId);
     }
 }

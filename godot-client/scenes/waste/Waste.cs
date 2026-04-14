@@ -70,6 +70,12 @@ public partial class Waste : Node2D
 	private Label _relevantResourcesTitle;
 	private Label _relevantStatsTitle;
 
+	private Rect2 _spawnOuterRect;
+	private Rect2 _spawnExclusion;
+	private Vector2 _mapScale;
+	private TileMapLayer _buildingLayer;
+	private readonly Queue<Vector2> _pendingKillPositions = new();
+
 	public override void _Ready()
 	{
 		_worldRoot = GetNode<Node2D>("%WorldRoot");
@@ -116,14 +122,14 @@ public partial class Waste : Node2D
 		_localPlayerNode.BindActivityDisplay(SpacetimeNetworkManager.Instance.LocalIdentity);
 
 		var groundLayer = _worldRoot.GetNode<Node2D>("PlayfieldMap/TileMapLayer");
-		var mapScale = _worldRoot.GetNode<Node2D>("PlayfieldMap").Scale;
-		var buildingLayer = _worldRoot.GetNode<TileMapLayer>("PlayfieldMap/BuildingMapLayer");
+		_mapScale = _worldRoot.GetNode<Node2D>("PlayfieldMap").Scale;
+		_buildingLayer = _worldRoot.GetNode<TileMapLayer>("PlayfieldMap/BuildingMapLayer");
 
 		var markerN = groundLayer.GetNode<Marker2D>("ZombieSpawnN");
 		var markerE = groundLayer.GetNode<Marker2D>("ZombieSpawnE");
 		var markerS = groundLayer.GetNode<Marker2D>("ZombieSpawnS");
 		var markerW = groundLayer.GetNode<Marker2D>("ZombieSpawnW");
-		var exclusion = new Rect2(
+		_spawnExclusion = new Rect2(
 			new Vector2(markerW.Position.X, markerN.Position.Y),
 			new Vector2(markerE.Position.X - markerW.Position.X, markerS.Position.Y - markerN.Position.Y)
 		);
@@ -133,24 +139,10 @@ public partial class Waste : Node2D
 		var rectShape = (RectangleShape2D)colShape.Shape;
 		Vector2 halfExtents = rectShape.Size * 0.5f * colShape.Scale * area.Scale;
 		Vector2 center = colShape.Position * area.Scale;
-		var outerRect = new Rect2(center - halfExtents, halfExtents * 2f);
+		_spawnOuterRect = new Rect2(center - halfExtents, halfExtents * 2f);
 
 		for (int i = 0; i < 100; i++)
-		{
-			Vector2 point;
-			do
-			{
-				point = new Vector2(
-					_rng.RandfRange(outerRect.Position.X, outerRect.End.X),
-					_rng.RandfRange(outerRect.Position.Y, outerRect.End.Y)
-				);
-			} while (exclusion.HasPoint(point));
-
-			var zombie = _zombieScene.Instantiate<Zombie>();
-			zombie.Position = point * mapScale;
-			zombie.BuildingLayer = buildingLayer;
-			_worldRoot.AddChild(zombie);
-		}
+			SpawnZombie();
 
 		_statsPanel.InitStats(SpacetimeNetworkManager.Instance.LocalIdentity);
 
@@ -184,6 +176,7 @@ public partial class Waste : Node2D
 
 		conn.Db.PlayerShelter.OnInsert += OnPlayerShelterInsert;
 		conn.Db.PlayerStructure.OnInsert += OnPlayerStructureInsert;
+		conn.Db.KillLoot.OnInsert += OnKillLootInsert;
 
 		GetViewport().SizeChanged += OnViewportSizeChanged;
 
@@ -986,5 +979,63 @@ public partial class Waste : Node2D
 
 		if (Activity.IsCraftableActivityType(activity.Type))
 			RefreshCraftingMenu();
+	}
+
+	private void SpawnZombie()
+	{
+		Vector2 point;
+		do
+		{
+			point = new Vector2(
+				_rng.RandfRange(_spawnOuterRect.Position.X, _spawnOuterRect.End.X),
+				_rng.RandfRange(_spawnOuterRect.Position.Y, _spawnOuterRect.End.Y)
+			);
+		} while (_spawnExclusion.HasPoint(point));
+
+		var zombie = _zombieScene.Instantiate<Zombie>();
+		zombie.Position = point * _mapScale;
+		zombie.BuildingLayer = _buildingLayer;
+		zombie.Killed += () => OnZombieKilled(zombie.Position);
+		_worldRoot.AddChild(zombie);
+	}
+
+	private void OnZombieKilled(Vector2 deathPosition)
+	{
+		_pendingKillPositions.Enqueue(deathPosition);
+		SpacetimeNetworkManager.Instance.Conn.Reducers.KillZombie();
+		SpawnZombie();
+	}
+
+	private void OnKillLootInsert(EventContext ctx, SpacetimeDB.Types.KillLoot loot)
+	{
+		if (loot.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
+			return;
+
+		var pos = _pendingKillPositions.Count > 0
+			? _pendingKillPositions.Dequeue()
+			: _localPlayerNode.Position;
+
+		SpawnFloatingLoot(pos, $"+{loot.Amount} {loot.Resource}");
+		SpacetimeNetworkManager.Instance.Conn.Reducers.AckKillLoot(loot.Id);
+	}
+
+	private void SpawnFloatingLoot(Vector2 worldPos, string text)
+	{
+		var label = new Label();
+		label.Text = text;
+		label.Position = worldPos - new Vector2(40, 30);
+		label.ZIndex = 100;
+		label.AddThemeFontSizeOverride("font_size", 48);
+		label.AddThemeColorOverride("font_color", new Color(1f, 0.9f, 0.2f));
+		label.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0));
+		label.AddThemeConstantOverride("outline_size", 8);
+		_worldRoot.AddChild(label);
+
+		var tween = label.CreateTween();
+		tween.SetParallel(true);
+		tween.TweenProperty(label, "position:y", worldPos.Y - 80, 1.0);
+		tween.TweenProperty(label, "modulate:a", 0.0f, 1.0);
+		tween.SetParallel(false);
+		tween.TweenCallback(Callable.From(label.QueueFree));
 	}
 }
