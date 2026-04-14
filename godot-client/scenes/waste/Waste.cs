@@ -10,6 +10,8 @@ public partial class Waste : Node2D
 	private SpacetimeDB.Types.Player player;
 	private Marker2D _playerSpawnPosition;
 	private Node2D _worldRoot;
+	private SubViewport _subViewport;
+	private Camera2D _camera;
 	private PlayfieldBackground _playfieldBackground;
 	private VBoxContainer _leftSide;
 	private PlayerStatsPanel _statsPanel;
@@ -79,7 +81,12 @@ public partial class Waste : Node2D
 	public override void _Ready()
 	{
 		_worldRoot = GetNode<Node2D>("%WorldRoot");
+		_subViewport = GetNode<SubViewport>("%SubViewport");
 		_playfieldBackground = GetNode<PlayfieldBackground>("%PlayfieldBackground");
+
+		_camera = new Camera2D();
+		_camera.Enabled = true;
+		_worldRoot.AddChild(_camera);
 		_playerSpawnPosition = GetNode<Marker2D>("%PlayerSpawnLocation");
 		_leftSide = GetNode<VBoxContainer>("%LeftSide");
 		_statsPanel = GetNode<PlayerStatsPanel>("%PlayerStatsPanel");
@@ -179,6 +186,7 @@ public partial class Waste : Node2D
 		conn.Db.KillLoot.OnInsert += OnKillLootInsert;
 
 		GetViewport().SizeChanged += OnViewportSizeChanged;
+		CallDeferred(nameof(FitCameraToPlayfield));
 
 		BuildLocationBar();
 		_relevantResourcesBar = GetNode<FlowContainer>("%RelevantResourcesBar");
@@ -296,7 +304,34 @@ public partial class Waste : Node2D
 
 	private void OnViewportSizeChanged()
 	{
+		FitCameraToPlayfield();
 		AlignSpawnToPlayfield();
+	}
+
+	private void FitCameraToPlayfield()
+	{
+		if (_subViewport is null || _camera is null) return;
+		var viewportSize = _subViewport.Size;
+		if (viewportSize.X <= 0 || viewportSize.Y <= 0) return;
+
+		var playfield = _worldRoot.GetNode<Node2D>("PlayfieldMap");
+		var groundLayer = playfield.GetNode<TileMapLayer>("TileMapLayer");
+		Vector2 mapScale = playfield.Scale;
+
+		var usedRect = groundLayer.GetUsedRect();
+		var tileSize = groundLayer.TileSet.TileSize;
+
+		var worldMin = new Vector2(usedRect.Position.X * tileSize.X, usedRect.Position.Y * tileSize.Y) * mapScale;
+		var worldMax = new Vector2(usedRect.End.X * tileSize.X, usedRect.End.Y * tileSize.Y) * mapScale;
+		var worldSize = worldMax - worldMin;
+		var worldCenter = (worldMin + worldMax) / 2f;
+
+		float zoomX = viewportSize.X / worldSize.X;
+		float zoomY = viewportSize.Y / worldSize.Y;
+		float zoom = Mathf.Min(zoomX, zoomY);
+
+		_camera.Zoom = new Vector2(zoom, zoom);
+		_camera.Position = worldCenter;
 	}
 
 	private void AlignSpawnToPlayfield()

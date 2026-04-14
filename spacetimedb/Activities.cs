@@ -387,6 +387,15 @@ public static partial class Module
         SetStat(ctx, participant, StatType.Perception, currentPerception + 2 + level);
     }
 
+    private static readonly StatType[] UpgradeableStats = {
+        StatType.Strength,
+        StatType.Intelligence,
+        StatType.Perception,
+        StatType.Wit,
+        StatType.Endurance,
+        StatType.Dexterity
+    };
+
     private static void CarbLoad(ReducerContext ctx, Identity participant) {
         var totalStats = (ulong)(
             GetStat(ctx, participant, StatType.Dexterity) +
@@ -404,14 +413,8 @@ public static partial class Module
             throw new Exception("Player has insufficient resources for upgrade");
         }
 
-        // Choose a random stat to upgrade
         var random = new Random();
-        var stats = Enum.GetValues<StatType>();
-        var statToUpgrade = stats[random.Next(stats.Length)];
-        while (statToUpgrade == StatType.Health || statToUpgrade == StatType.MaxHealth) 
-        {
-            statToUpgrade = stats[random.Next(stats.Length)];
-        }
+        var statToUpgrade = UpgradeableStats[random.Next(UpgradeableStats.Length)];
 
         var carbLevel = (int)GetActivityLevel(ctx, participant, ActivityType.CarbLoad);
         SetStat(ctx, participant, statToUpgrade, GetStat(ctx, participant, statToUpgrade) + 1 + carbLevel);
@@ -433,12 +436,7 @@ public static partial class Module
 
     private static void CarbLoadReward(ReducerContext ctx, Identity participant) {
         var random = new Random();
-        var stats = Enum.GetValues<StatType>();
-        var statToUpgrade = stats[random.Next(stats.Length)];
-        while (statToUpgrade == StatType.Health || statToUpgrade == StatType.MaxHealth)
-        {
-            statToUpgrade = stats[random.Next(stats.Length)];
-        }
+        var statToUpgrade = UpgradeableStats[random.Next(UpgradeableStats.Length)];
         var carbLevel = (int)GetActivityLevel(ctx, participant, ActivityType.CarbLoad);
         SetStat(ctx, participant, statToUpgrade, GetStat(ctx, participant, statToUpgrade) + 1 + carbLevel);
 
