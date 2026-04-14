@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-public partial class Waste : Node2D
+public partial class Shelter : Node2D
 {
 	private SpacetimeDB.Types.Player player;
 	private Marker2D _playerSpawnPosition;
@@ -30,21 +30,11 @@ public partial class Waste : Node2D
 	private RandomNumberGenerator _rng = new();
 
 	private Label _locationLabel;
-	private Button _travelWasteButton;
 	private Button _travelShelterButton;
 	private Button _travelGuildHallButton;
 
 	private PanelContainer _craftingPanel;
 	private VBoxContainer _craftingList;
-
-	private struct CraftingProgress
-	{
-		public ProgressBar Bar;
-		public ulong LocalStartUsec;
-		public double InitialPercent;
-		public ulong RemainingUsec;
-	}
-	private readonly Dictionary<ActivityType, CraftingProgress> _craftingProgressBars = new();
 
 	private Dictionary<ulong, Activity> _activityNodes = new();
 
@@ -52,16 +42,19 @@ public partial class Waste : Node2D
 	private Control _characterPopup;
 	private Control _inventoryPopup;
 	private Control _socialPopup;
+	private Control _skillsPopup;
 	private Control _systemPopup;
 
 	private PanelContainer _modalCharacter;
 	private PanelContainer _modalInventory;
 	private PanelContainer _modalSocial;
+	private PanelContainer _modalSkills;
 	private PanelContainer _modalSystem;
 
 	private Button _btnCharacter;
 	private Button _btnInventory;
 	private Button _btnSocial;
+	private Button _btnSkills;
 	private Button _btnSystem;
 
 	private int? _openPopupIndex;
@@ -71,6 +64,14 @@ public partial class Waste : Node2D
 	private PanelContainer _relevantResourcesPanel;
 	private Label _relevantResourcesTitle;
 	private Label _relevantStatsTitle;
+
+	private Label _levelLabel;
+	private ProgressBar _xpProgressBar;
+	private Label _xpLabel;
+	private Label _skillPointsLabel;
+
+	private Label _skillsAvailableLabel;
+	private VBoxContainer _skillsList;
 
 	private Rect2 _spawnOuterRect;
 	private Rect2 _spawnExclusion;
@@ -98,22 +99,40 @@ public partial class Waste : Node2D
 		_characterPopup = GetNode<Control>("%CharacterPopup");
 		_inventoryPopup = GetNode<Control>("%InventoryPopup");
 		_socialPopup = GetNode<Control>("%SocialPopup");
+		_skillsPopup = GetNode<Control>("%SkillsPopup");
 		_systemPopup = GetNode<Control>("%SystemPopup");
 
 		_modalCharacter = GetNode<PanelContainer>("CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel");
 		_modalInventory = GetNode<PanelContainer>("CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel");
 		_modalSocial = GetNode<PanelContainer>("CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel");
+		_modalSkills = GetNode<PanelContainer>("CanvasLayerPopups/SkillsPopup/CenterSkills/SkillsPanel");
 		_modalSystem = GetNode<PanelContainer>("CanvasLayerPopups/SystemPopup/CenterSystem/SystemPanel");
 
 		_btnCharacter = GetNode<Button>("%CharacterMenuButton");
 		_btnInventory = GetNode<Button>("%InventoryMenuButton");
 		_btnSocial = GetNode<Button>("%SocialMenuButton");
+		_btnSkills = GetNode<Button>("%SkillsMenuButton");
 		_btnSystem = GetNode<Button>("%SystemMenuButton");
 
 		_btnCharacter.Pressed += () => TogglePopup(0);
 		_btnInventory.Pressed += () => TogglePopup(1);
 		_btnSocial.Pressed += () => TogglePopup(2);
-		_btnSystem.Pressed += () => TogglePopup(3);
+		_btnSkills.Pressed += () => TogglePopup(3);
+		_btnSystem.Pressed += () => TogglePopup(4);
+
+		_levelLabel = GetNode<Label>("%LevelLabel");
+		_xpProgressBar = GetNode<ProgressBar>("%XpProgressBar");
+		_xpLabel = GetNode<Label>("%XpLabel");
+		_skillPointsLabel = GetNode<Label>("%SkillPointsLabel");
+
+		var debugLevelUpBtn = GetNode<Button>("%DebugLevelUpButton");
+		debugLevelUpBtn.Pressed += () =>
+		{
+			SpacetimeNetworkManager.Instance?.Conn?.Reducers.DebugLevelUp();
+		};
+
+		_skillsAvailableLabel = GetNode<Label>("%SkillsAvailableLabel");
+		_skillsList = GetNode<VBoxContainer>("%SkillsList");
 
 		SetProcessInput(true);
 
@@ -178,6 +197,10 @@ public partial class Waste : Node2D
 		conn.Db.ActiveTask.OnInsert += OnActiveTaskInsert;
 		conn.Db.ActiveTask.OnDelete += OnActiveTaskDelete;
 
+		conn.Db.PlayerLevel.OnInsert += OnPlayerLevelChange;
+		conn.Db.PlayerLevel.OnUpdate += OnPlayerLevelUpdate;
+		conn.Db.PlayerSkill.OnInsert += OnPlayerSkillInsert;
+
 		_guildSocialPanel.GuildSessionChanged += OnGuildSessionChanged;
 
 		conn.Db.Player.OnUpdate += OnPlayerUpdate;
@@ -197,19 +220,11 @@ public partial class Waste : Node2D
 		_relevantStatsTitle = GetNode<Label>("%RelevantStatsTitle");
 		BuildCraftingPanel();
 		RefreshLocationUI();
+		RefreshXpBar();
 	}
 
 	public override void _Process(double delta)
 	{
-		foreach (var (type, cp) in _craftingProgressBars)
-		{
-			if (!IsInstanceValid(cp.Bar)) continue;
-			if (cp.InitialPercent >= 100.0) { cp.Bar.Value = 100; continue; }
-			var elapsed = Time.GetTicksUsec() - cp.LocalStartUsec;
-			var span = 100.0 - cp.InitialPercent;
-			var pct = elapsed / (double)cp.RemainingUsec * span;
-			cp.Bar.Value = Math.Clamp(cp.InitialPercent + pct, 0.0, 100.0);
-		}
 	}
 
 	public override void _Input(InputEvent @event)
@@ -231,7 +246,8 @@ public partial class Waste : Node2D
 		0 => _modalCharacter,
 		1 => _modalInventory,
 		2 => _modalSocial,
-		3 => _modalSystem,
+		3 => _modalSkills,
+		4 => _modalSystem,
 		_ => null,
 	};
 
@@ -280,7 +296,8 @@ public partial class Waste : Node2D
 		_characterPopup.Visible = index == 0;
 		_inventoryPopup.Visible = index == 1;
 		_socialPopup.Visible = index == 2;
-		_systemPopup.Visible = index == 3;
+		_skillsPopup.Visible = index == 3;
+		_systemPopup.Visible = index == 4;
 
 		switch (index)
 		{
@@ -289,6 +306,9 @@ public partial class Waste : Node2D
 				break;
 			case 2:
 				_guildSocialPanel.RefreshOnOpen();
+				break;
+			case 3:
+				RefreshSkillsPanel();
 				break;
 		}
 	}
@@ -300,6 +320,7 @@ public partial class Waste : Node2D
 		_characterPopup.Visible = false;
 		_inventoryPopup.Visible = false;
 		_socialPopup.Visible = false;
+		_skillsPopup.Visible = false;
 		_systemPopup.Visible = false;
 	}
 
@@ -349,13 +370,13 @@ public partial class Waste : Node2D
 	private void BuildLocationBar()
 	{
 		_locationLabel = GetNode<Label>("%LocationLabel");
-		_travelWasteButton = GetNode<Button>("%TravelWasteButton");
 		_travelShelterButton = GetNode<Button>("%TravelShelterButton");
 		_travelGuildHallButton = GetNode<Button>("%TravelGuildHallButton");
 
-		_travelWasteButton.Pressed += () => SpacetimeNetworkManager.Instance.Conn.Reducers.Travel(LocationType.Waste);
 		_travelShelterButton.Pressed += () => SpacetimeNetworkManager.Instance.Conn.Reducers.Travel(LocationType.Shelter);
 		_travelGuildHallButton.Pressed += () => SpacetimeNetworkManager.Instance.Conn.Reducers.Travel(LocationType.GuildHall);
+		_travelGuildHallButton.Disabled = true;
+		_travelGuildHallButton.TooltipText = "Coming soon";
 	}
 
 	private void BuildCraftingPanel()
@@ -367,7 +388,6 @@ public partial class Waste : Node2D
 
 	private static string LocationDisplayName(LocationType loc) => loc switch
 	{
-		LocationType.Waste => "The Waste",
 		LocationType.Shelter => "Shelter",
 		LocationType.GuildHall => "Guild Hall",
 		_ => loc.ToString()
@@ -375,7 +395,6 @@ public partial class Waste : Node2D
 
 	private static Color LocationPlayfieldColor(LocationType loc) => loc switch
 	{
-		LocationType.Waste => new Color(0.45f, 0.45f, 0.48f),
 		LocationType.Shelter => new Color(0.42f, 0.30f, 0.22f),
 		LocationType.GuildHall => new Color(0.72f, 0.62f, 0.28f),
 		_ => new Color(0.35f, 0.35f, 0.38f),
@@ -412,62 +431,11 @@ public partial class Waste : Node2D
 				set.Add(StatType.Dexterity);
 				set.Add(StatType.Endurance);
 				break;
-			case ActivityType.CarbLoad:
-				set.Add(StatType.Dexterity);
-				set.Add(StatType.Endurance);
-				set.Add(StatType.Intelligence);
-				set.Add(StatType.Perception);
-				set.Add(StatType.Wit);
-				set.Add(StatType.Strength);
-				break;
-			case ActivityType.Focus:
-				set.Add(StatType.Perception);
-				break;
-			case ActivityType.Study:
-				set.Add(StatType.Intelligence);
-				break;
-			case ActivityType.Salvage:
-				set.Add(StatType.Dexterity);
-				set.Add(StatType.Wit);
-				break;
-			case ActivityType.SearchFood:
-				set.Add(StatType.Perception);
-				break;
-			case ActivityType.SearchFabric:
-				set.Add(StatType.Intelligence);
-				break;
-			case ActivityType.SearchMetal:
-				set.Add(StatType.Strength);
-				break;
-			case ActivityType.SearchMoney:
-				set.Add(StatType.Wit);
-				break;
-			case ActivityType.SearchParts:
-				set.Add(StatType.Dexterity);
-				break;
-			case ActivityType.SearchWood:
+			case ActivityType.ChopWood:
 				set.Add(StatType.Endurance);
 				break;
-			case ActivityType.TrainStrength:
+			case ActivityType.Mine:
 				set.Add(StatType.Strength);
-				break;
-			case ActivityType.TrainWit:
-				set.Add(StatType.Wit);
-				break;
-			case ActivityType.TrainEndurance:
-				set.Add(StatType.Endurance);
-				break;
-			case ActivityType.TrainDexterity:
-				set.Add(StatType.Dexterity);
-				break;
-			case ActivityType.LootBigWood:
-			case ActivityType.BuildShelter:
-			case ActivityType.BuildDumbbells:
-			case ActivityType.BuildBookshelf:
-			case ActivityType.BuildDartBoard:
-			case ActivityType.BuildMeditationNook:
-			case ActivityType.BuildStairStepper:
-			case ActivityType.BuildPingPongTable:
 				break;
 		}
 	}
@@ -476,7 +444,7 @@ public partial class Waste : Node2D
 	{
 		var set = new HashSet<StatType>();
 
-		if (loc == LocationType.Waste)
+		if (loc == LocationType.Shelter)
 			AddActivityRelevantStats(ActivityType.Scavenge, set);
 
 		foreach (var activity in conn.Db.Activity.Participant.Filter(localId))
@@ -495,22 +463,11 @@ public partial class Waste : Node2D
 		return ordered;
 	}
 
-	private static void AddActivityOutputResourceTypes(ActivityType activityType, HashSet<ResourceType> set)
-	{
-		switch (activityType)
-		{
-			case ActivityType.Salvage:
-				set.Add(ResourceType.Metal);
-				set.Add(ResourceType.Money);
-				break;
-		}
-	}
-
 	private static List<ResourceType> ComputeRelevantResourceTypes(DbConnection conn, SpacetimeDB.Identity localId, LocationType loc)
 	{
 		var set = new HashSet<ResourceType>();
 
-		if (loc == LocationType.Waste)
+		if (loc == LocationType.Shelter)
 		{
 			foreach (ResourceType r in Enum.GetValues<ResourceType>())
 				set.Add(r);
@@ -522,7 +479,6 @@ public partial class Waste : Node2D
 				continue;
 			foreach (var c in activity.Cost)
 				set.Add(c.Type);
-			AddActivityOutputResourceTypes(activity.Type, set);
 		}
 
 		if (loc == LocationType.Shelter || loc == LocationType.GuildHall)
@@ -641,11 +597,8 @@ public partial class Waste : Node2D
 		_locationLabel.Text = $"Location: {LocationDisplayName(loc)}";
 		_playfieldBackground.SetColor(LocationPlayfieldColor(loc));
 
-		_travelWasteButton.Visible = loc != LocationType.Waste;
-		_travelShelterButton.Visible = loc != LocationType.Shelter
-			&& conn.Db.PlayerShelter.Owner.Find(localId) is not null;
-		_travelGuildHallButton.Visible = loc != LocationType.GuildHall
-			&& conn.Db.GuildMember.PlayerId.Find(localId) is not null;
+		_travelShelterButton.Visible = loc != LocationType.Shelter;
+		_travelGuildHallButton.Visible = true;
 
 		bool isShelterLoc = loc == LocationType.Shelter || loc == LocationType.GuildHall;
 		_craftingPanel.Visible = isShelterLoc;
@@ -679,8 +632,6 @@ public partial class Waste : Node2D
 		_activitiesPanel.AddChild(activitySelection);
 		activitySelection.InitActivityTracking(activity.Id);
 		_activityNodes[activity.Id] = activitySelection;
-
-		// Visibility (location + unlock criteria) is applied in Activity.Format via InitActivityTracking.
 	}
 
 	private void RefreshCraftingMenu()
@@ -730,106 +681,6 @@ public partial class Waste : Node2D
 			_craftingList.AddChild(row);
 		}
 
-		var activeTask = conn.Db.ActiveTask.Participant.Find(localId);
-		_craftingProgressBars.Clear();
-
-		foreach (var activity in conn.Db.Activity.Participant.Filter(localId))
-		{
-			if (!Activity.IsCraftableActivityType(activity.Type))
-				continue;
-
-			var outer = new VBoxContainer();
-			outer.AddThemeConstantOverride("separation", 4);
-
-			var row = new HBoxContainer();
-			row.AddThemeConstantOverride("separation", 8);
-
-			var nameLabel = new Label();
-			nameLabel.Text = Activity.GetActivityDisplayName(activity.Type);
-			nameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-			row.AddChild(nameLabel);
-
-			var costLabel = new Label();
-			costLabel.Text = string.Join(", ", activity.Cost.Select(c => $"{c.Amount} {c.Type}"));
-			costLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
-			row.AddChild(costLabel);
-
-			var effectiveMs = Activity.GetEffectiveDurationMs(activity, conn, localId);
-			var durationSec = effectiveMs / 1000.0;
-			var durationLabel = new Label();
-			durationLabel.Text = durationSec >= 1.0 ? $"{durationSec:F0}s" : $"{durationSec:F1}s";
-			durationLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
-			row.AddChild(durationLabel);
-
-			bool isBuilding = activeTask is not null && activeTask.Type == activity.Type;
-			if (isBuilding)
-			{
-				row.AddChild(new Label
-				{
-					Text = "Building...",
-					Modulate = new Color(1f, 0.85f, 0.3f)
-				});
-			}
-			else
-			{
-				var buildBtn = new Button();
-				buildBtn.Text = "Build";
-				buildBtn.CustomMinimumSize = new Vector2(80, 28);
-				var capturedType = activity.Type;
-				buildBtn.Pressed += () => conn.Reducers.StartActivity(capturedType);
-				row.AddChild(buildBtn);
-			}
-
-			outer.AddChild(row);
-
-			if (isBuilding)
-			{
-				var fillStyle = new StyleBoxFlat();
-				fillStyle.BgColor = new Color(0.3f, 0.75f, 0.35f);
-				fillStyle.SetCornerRadiusAll(3);
-
-				var bgStyle = new StyleBoxFlat();
-				bgStyle.BgColor = new Color(0.15f, 0.15f, 0.18f);
-				bgStyle.SetCornerRadiusAll(3);
-
-				var progressBar = new ProgressBar();
-				progressBar.MinValue = 0;
-				progressBar.MaxValue = 100;
-				progressBar.ShowPercentage = false;
-				progressBar.CustomMinimumSize = new Vector2(0, 12);
-				progressBar.AddThemeStyleboxOverride("fill", fillStyle);
-				progressBar.AddThemeStyleboxOverride("background", bgStyle);
-
-				var startUs = (long)activeTask.StartedAt.MicrosecondsSinceUnixEpoch;
-				var endUs = (long)activeTask.CompletesAt.MicrosecondsSinceUnixEpoch;
-				var totalUs = endUs - startUs;
-
-				if (totalUs > 0)
-				{
-					var wallNowUs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1000L;
-					var alreadyUs = Math.Max(0L, Math.Min(wallNowUs - startUs, totalUs));
-					var initialPct = alreadyUs / (double)totalUs * 100.0;
-					progressBar.Value = Math.Clamp(initialPct, 0.0, 100.0);
-
-					_craftingProgressBars[activity.Type] = new CraftingProgress
-					{
-						Bar = progressBar,
-						LocalStartUsec = Time.GetTicksUsec(),
-						InitialPercent = initialPct,
-						RemainingUsec = (ulong)Math.Max(1, totalUs - alreadyUs)
-					};
-				}
-				else
-				{
-					progressBar.Value = 100;
-				}
-
-				outer.AddChild(progressBar);
-			}
-
-			_craftingList.AddChild(outer);
-		}
-
 		if (_craftingList.GetChildCount() == 0)
 		{
 			var empty = new Label();
@@ -838,6 +689,136 @@ public partial class Waste : Node2D
 			empty.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
 			_craftingList.AddChild(empty);
 		}
+	}
+
+	private static ulong XpForNextLevel(uint level) =>
+		(ulong)Math.Floor(20.0 * Math.Pow(1.5, level));
+
+	private void RefreshXpBar()
+	{
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+		var pl = conn.Db.PlayerLevel.Owner.Find(localId);
+
+		uint level = pl?.Level ?? 0;
+		ulong xp = pl?.Xp ?? 0;
+		uint sp = pl?.AvailableSkillPoints ?? 0;
+
+		var needed = XpForNextLevel(level);
+		_levelLabel.Text = $"Lv {level}";
+		_xpProgressBar.Value = needed > 0 ? (double)xp / needed * 100.0 : 0;
+		_xpLabel.Text = $"{xp} / {needed} XP";
+		_skillPointsLabel.Text = sp > 0 ? $"SP: {sp}" : "";
+	}
+
+	private void RefreshSkillsPanel()
+	{
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+		var pl = conn.Db.PlayerLevel.Owner.Find(localId);
+		uint availableSp = pl?.AvailableSkillPoints ?? 0;
+		uint playerLevel = pl?.Level ?? 0;
+
+		_skillsAvailableLabel.Text = $"Available Skill Points: {availableSp}";
+
+		foreach (var child in _skillsList.GetChildren())
+			child.QueueFree();
+
+		foreach (var skill in conn.Db.SkillDefinition.Iter())
+		{
+			bool owned = conn.Db.PlayerSkill.BySkillOwnerDef
+				.Filter((Owner: localId, SkillDefinitionId: skill.Id)).Any();
+
+			bool meetsLevel = skill.RequiredLevel is not uint reqLvl || playerLevel >= reqLvl;
+			bool meetsPrereq = true;
+			if (skill.PrerequisiteSkillId is ulong prereqId)
+			{
+				meetsPrereq = conn.Db.PlayerSkill.BySkillOwnerDef
+					.Filter((Owner: localId, SkillDefinitionId: prereqId)).Any();
+			}
+			bool canAfford = availableSp >= skill.Cost;
+
+			var outer = new VBoxContainer();
+			outer.AddThemeConstantOverride("separation", 2);
+
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 8);
+
+			var nameLabel = new Label();
+			nameLabel.Text = skill.Name;
+			nameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+			nameLabel.AddThemeFontSizeOverride("font_size", 18);
+			row.AddChild(nameLabel);
+
+			var costLabel = new Label();
+			costLabel.Text = $"{skill.Cost} SP";
+			costLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
+			row.AddChild(costLabel);
+
+			if (owned)
+			{
+				var ownedLabel = new Label();
+				ownedLabel.Text = "Learned";
+				ownedLabel.AddThemeColorOverride("font_color", new Color(0.3f, 1f, 0.3f));
+				row.AddChild(ownedLabel);
+			}
+			else
+			{
+				var purchaseBtn = new Button();
+				purchaseBtn.Text = "Learn";
+				purchaseBtn.CustomMinimumSize = new Vector2(80, 28);
+				purchaseBtn.Disabled = !meetsLevel || !meetsPrereq || !canAfford;
+				var capturedId = skill.Id;
+				purchaseBtn.Pressed += () =>
+				{
+					conn.Reducers.PurchaseSkill(capturedId);
+					CallDeferred(nameof(RefreshSkillsPanel));
+				};
+				row.AddChild(purchaseBtn);
+			}
+
+			outer.AddChild(row);
+
+			var descLabel = new Label();
+			descLabel.Text = skill.Description;
+			descLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
+			descLabel.AddThemeFontSizeOverride("font_size", 14);
+			outer.AddChild(descLabel);
+
+			if (skill.RequiredLevel is uint reqLevel && !meetsLevel)
+			{
+				var reqLabel = new Label();
+				reqLabel.Text = $"Requires Level {reqLevel}";
+				reqLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.4f, 0.4f));
+				reqLabel.AddThemeFontSizeOverride("font_size", 13);
+				outer.AddChild(reqLabel);
+			}
+
+			_skillsList.AddChild(outer);
+		}
+	}
+
+	private void OnPlayerLevelChange(EventContext ctx, SpacetimeDB.Types.PlayerLevel row)
+	{
+		if (row.Owner != SpacetimeNetworkManager.Instance.LocalIdentity) return;
+		RefreshXpBar();
+		RefreshActivityVisibility();
+	}
+
+	private void OnPlayerLevelUpdate(EventContext ctx, SpacetimeDB.Types.PlayerLevel oldRow, SpacetimeDB.Types.PlayerLevel newRow)
+	{
+		if (newRow.Owner != SpacetimeNetworkManager.Instance.LocalIdentity) return;
+		RefreshXpBar();
+		RefreshActivityVisibility();
+		if (_openPopupIndex == 3) RefreshSkillsPanel();
+	}
+
+	private void OnPlayerSkillInsert(EventContext ctx, SpacetimeDB.Types.PlayerSkill row)
+	{
+		if (row.Owner != SpacetimeNetworkManager.Instance.LocalIdentity) return;
+		RefreshXpBar();
+		RefreshActivityVisibility();
+		if (_openPopupIndex == 3) RefreshSkillsPanel();
 	}
 
 	private void OnGuildSessionChanged(bool inSession)
@@ -976,17 +957,12 @@ public partial class Waste : Node2D
 	{
 		if (task.Participant != SpacetimeNetworkManager.Instance.LocalIdentity)
 			return;
-
-		if (Activity.IsCraftableActivityType(task.Type))
-			RefreshCraftingMenu();
 	}
 
 	private void OnActiveTaskDelete(EventContext ctx, SpacetimeDB.Types.ActiveTask task)
 	{
 		if (task.Participant != SpacetimeNetworkManager.Instance.LocalIdentity)
 			return;
-
-		RefreshLocationUI();
 	}
 
 	private void OnActivityInsert(EventContext ctx, SpacetimeDB.Types.Activity activity)
@@ -996,9 +972,6 @@ public partial class Waste : Node2D
 
 		AddActivityNode(activity);
 		RefreshRelevantLocationContext();
-
-		if (Activity.IsCraftableActivityType(activity.Type))
-			RefreshCraftingMenu();
 	}
 
 	private void OnActivityDelete(EventContext ctx, SpacetimeDB.Types.Activity activity)
@@ -1012,9 +985,6 @@ public partial class Waste : Node2D
 			_activityNodes.Remove(activity.Id);
 		}
 		RefreshRelevantLocationContext();
-
-		if (Activity.IsCraftableActivityType(activity.Type))
-			RefreshCraftingMenu();
 	}
 
 	private void SpawnZombie()

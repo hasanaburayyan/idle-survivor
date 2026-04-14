@@ -75,11 +75,15 @@ public partial class Player : CharacterBody2D
 		conn.Db.ActiveTask.OnInsert += OnActiveTaskInserted;
 		conn.Db.ActiveTask.OnDelete += OnActiveTaskDeleted;
 
-		var existing = conn.Db.ActiveTask.Participant.Find(playerId);
-		if (existing is null)
-			ClearActivityLabel();
-		else
+		bool found = false;
+		foreach (var existing in conn.Db.ActiveTask.Participant.Filter(playerId))
+		{
 			SetActivityLabel(FormatActivityLine(existing.Type));
+			found = true;
+			break;
+		}
+		if (!found)
+			ClearActivityLabel();
 	}
 
 	private void UnbindActivityDisplay()
@@ -138,28 +142,8 @@ public partial class Player : CharacterBody2D
 	private static string FormatActivityLine(ActivityType type) => type switch
 	{
 		ActivityType.Scavenge => "Scavenging...",
-		ActivityType.LootBigWood => "Looting...",
-		ActivityType.CarbLoad => "Carb loading...",
-		ActivityType.Study => "Studying...",
-		ActivityType.Focus => "Focusing...",
-		ActivityType.BuildShelter => "Building shelter...",
-		ActivityType.Salvage => "Salvaging...",
-		ActivityType.SearchFood => "Searching for food...",
-		ActivityType.SearchMoney => "Searching for money...",
-		ActivityType.SearchWood => "Searching for wood...",
-		ActivityType.SearchMetal => "Searching for metal...",
-		ActivityType.SearchFabric => "Searching for fabric...",
-		ActivityType.SearchParts => "Searching for parts...",
-		ActivityType.TrainStrength => "Training strength...",
-		ActivityType.TrainWit => "Training wit...",
-		ActivityType.TrainEndurance => "Training endurance...",
-		ActivityType.TrainDexterity => "Training dexterity...",
-		ActivityType.BuildDumbbells => "Building dumbbells...",
-		ActivityType.BuildBookshelf => "Building bookshelf...",
-		ActivityType.BuildDartBoard => "Building dart board...",
-		ActivityType.BuildMeditationNook => "Building meditation nook...",
-		ActivityType.BuildStairStepper => "Building stair stepper...",
-		ActivityType.BuildPingPongTable => "Building ping pong table...",
+		ActivityType.ChopWood => "Chopping wood...",
+		ActivityType.Mine => "Mining...",
 		_ => $"{type}..."
 	};
 

@@ -3,7 +3,6 @@ using SpacetimeDB;
 [SpacetimeDB.Type]
 public enum LocationType : byte
 {
-    Waste,
     Shelter,
     GuildHall
 }
@@ -84,6 +83,47 @@ public static partial class Module
             }
         });
 
+        Log.Info("Seeding skill definitions");
+
+        ctx.Db.SkillDefinition.Insert(new SkillDefinition
+        {
+            Id = 0,
+            Name = "Scavenger",
+            Description = "Improves scavenging efficiency.",
+            Cost = 1,
+            RequiredLevel = null,
+            PrerequisiteSkillId = null
+        });
+
+        ctx.Db.SkillDefinition.Insert(new SkillDefinition
+        {
+            Id = 0,
+            Name = "Lumberjack",
+            Description = "Improves wood chopping efficiency.",
+            Cost = 1,
+            RequiredLevel = 3,
+            PrerequisiteSkillId = null
+        });
+
+        ctx.Db.SkillDefinition.Insert(new SkillDefinition
+        {
+            Id = 0,
+            Name = "Miner",
+            Description = "Improves mining efficiency.",
+            Cost = 1,
+            RequiredLevel = 5,
+            PrerequisiteSkillId = null
+        });
+
+        ctx.Db.SkillDefinition.Insert(new SkillDefinition
+        {
+            Id = 0,
+            Name = "Auto-1",
+            Description = "Unlocks 1 auto-repeat activity slot.",
+            Cost = 1,
+            RequiredLevel = null,
+            PrerequisiteSkillId = null
+        });
     }
 
     [SpacetimeDB.Reducer]
@@ -95,12 +135,6 @@ public static partial class Module
         if (player.Location == destination)
             throw new Exception("Already at that location");
 
-        if (destination == LocationType.Shelter)
-        {
-            if (ctx.Db.PlayerShelter.Owner.Find(ctx.Sender) is null)
-                throw new Exception("You have not built a shelter yet");
-        }
-
         if (destination == LocationType.GuildHall)
         {
             if (ctx.Db.GuildMember.PlayerId.Find(ctx.Sender) is null)
@@ -111,9 +145,9 @@ public static partial class Module
 
         RemoveAllScheduledEventsForParticipant(ctx, ctx.Sender);
 
-        if (destination == LocationType.Waste)
+        if (destination == LocationType.Shelter)
         {
-            StartWasteSchedules(ctx, ctx.Sender);
+            StartShelterSchedules(ctx, ctx.Sender);
         }
     }
 
@@ -158,81 +192,5 @@ public static partial class Module
             Level = 1,
             BuiltAt = ctx.Timestamp
         });
-
-        ApplyPostBuildEffects(ctx, ctx.Sender, definition.Name);
     }
-
-    private static void ApplyPostBuildEffects(ReducerContext ctx, Identity owner, string structureName)
-    {
-        switch (structureName)
-        {
-            case "Smelter":
-                var hasSalvage = ctx.Db.Activity.by_activity_participant_type
-                    .Filter((Participant: owner, Type: ActivityType.Salvage)).Any();
-                if (!hasSalvage)
-                {
-                    ctx.Db.Activity.Insert(new Activity
-                    {
-                        Participant = owner,
-                        Type = ActivityType.Salvage,
-                        Cost = new List<ActivityCost>
-                        {
-                            new ActivityCost { Type = ResourceType.Parts, Amount = 10 }
-                        },
-                        DurationMs = 3000,
-                        RequiredLocation = LocationType.Shelter,
-                        UnlockCriteria = [],
-                        Level = 1
-                    });
-                }
-                break;
-        }
-
-    }
-
-    private static readonly (ActivityType BuildType, ActivityType TrainType, List<ActivityCost> Cost)[] TrainingStructures =
-    [
-        (ActivityType.BuildDumbbells, ActivityType.TrainStrength, [new ActivityCost { Type = ResourceType.Metal, Amount = 40 }, new ActivityCost { Type = ResourceType.Parts, Amount = 20 }]),
-        (ActivityType.BuildBookshelf, ActivityType.Study, [new ActivityCost { Type = ResourceType.Wood, Amount = 30 }, new ActivityCost { Type = ResourceType.Fabric, Amount = 30 }]),
-        (ActivityType.BuildDartBoard, ActivityType.Focus, [new ActivityCost { Type = ResourceType.Wood, Amount = 25 }, new ActivityCost { Type = ResourceType.Metal, Amount = 25 }]),
-        (ActivityType.BuildMeditationNook, ActivityType.TrainWit, [new ActivityCost { Type = ResourceType.Fabric, Amount = 35 }, new ActivityCost { Type = ResourceType.Wood, Amount = 25 }]),
-        (ActivityType.BuildStairStepper, ActivityType.TrainEndurance, [new ActivityCost { Type = ResourceType.Metal, Amount = 40 }, new ActivityCost { Type = ResourceType.Wood, Amount = 20 }]),
-        (ActivityType.BuildPingPongTable, ActivityType.TrainDexterity, [new ActivityCost { Type = ResourceType.Parts, Amount = 30 }, new ActivityCost { Type = ResourceType.Wood, Amount = 30 }]),
-    ];
-
-    public static void InsertBuildStructureActivities(ReducerContext ctx, Identity participant)
-    {
-        foreach (var (buildType, trainType, cost) in TrainingStructures)
-        {
-            if (ctx.Db.Activity.by_activity_participant_type
-                .Filter((Participant: participant, Type: buildType)).Any())
-                continue;
-
-            if (ctx.Db.Activity.by_activity_participant_type
-                .Filter((Participant: participant, Type: trainType)).Any())
-                continue;
-
-            ctx.Db.Activity.Insert(new Activity
-            {
-                Participant = participant,
-                Type = buildType,
-                Cost = cost,
-                DurationMs = 10_000,
-                RequiredLocation = LocationType.Shelter,
-                UnlockCriteria = [],
-                Level = 1
-            });
-        }
-    }
-
-    public static ActivityType? BuildTypeToTrainType(ActivityType buildType) => buildType switch
-    {
-        ActivityType.BuildDumbbells => ActivityType.TrainStrength,
-        ActivityType.BuildBookshelf => ActivityType.Study,
-        ActivityType.BuildDartBoard => ActivityType.Focus,
-        ActivityType.BuildMeditationNook => ActivityType.TrainWit,
-        ActivityType.BuildStairStepper => ActivityType.TrainEndurance,
-        ActivityType.BuildPingPongTable => ActivityType.TrainDexterity,
-        _ => null
-    };
 }

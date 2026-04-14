@@ -1,11 +1,11 @@
 [gd_scene format=4 uid="uid://dt6dxcbysqucx"]
 
-[ext_resource type="Script" uid="uid://cva7b2v5axjgv" path="res://scenes/waste/Waste.cs" id="1_u24a1"]
-[ext_resource type="Script" uid="uid://lgnpk70neftg" path="res://scenes/waste/PlayerStatsPanel.cs" id="2_stats"]
+[ext_resource type="Script" uid="uid://cva7b2v5axjgv" path="res://scenes/shelter/Shelter.cs" id="1_u24a1"]
+[ext_resource type="Script" uid="uid://lgnpk70neftg" path="res://scenes/shelter/PlayerStatsPanel.cs" id="2_stats"]
 [ext_resource type="Theme" uid="uid://dip5q8cif3hmy" path="res://theme/default_theme.tres" id="3_theme"]
-[ext_resource type="Script" uid="uid://dgx7h6bjkkv0r" path="res://scenes/waste/PlayfieldBackground.cs" id="4_bg"]
-[ext_resource type="PackedScene" path="res://scenes/waste/playfield_map.tscn" id="7_pfmap"]
-[ext_resource type="Script" uid="uid://la7tp3fccedg" path="res://scenes/waste/CharacterProfilePanel.cs" id="5_profile"]
+[ext_resource type="Script" uid="uid://dgx7h6bjkkv0r" path="res://scenes/shelter/PlayfieldBackground.cs" id="4_bg"]
+[ext_resource type="PackedScene" path="res://scenes/shelter/playfield_map.tscn" id="7_pfmap"]
+[ext_resource type="Script" uid="uid://la7tp3fccedg" path="res://scenes/shelter/CharacterProfilePanel.cs" id="5_profile"]
 [ext_resource type="Script" uid="uid://bn807yekrxs74" path="res://scenes/menu/GuildSocialPanel.cs" id="6_guild"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_locationbar"]
@@ -39,7 +39,7 @@ bg_color = Color(0.09, 0.09, 0.11, 0.98)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 
-[node name="Waste" type="Node2D" unique_id=950968465]
+[node name="Shelter" type="Node2D" unique_id=950968465]
 script = ExtResource("1_u24a1")
 
 [node name="CanvasLayerHud" type="CanvasLayer" parent="." unique_id=1702314934]
@@ -74,19 +74,13 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 18
-text = "Location: The Waste"
+text = "Location: Shelter"
 
 [node name="TravelButtonsContainer" type="HBoxContainer" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar" unique_id=796022903]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="TravelWasteButton" type="Button" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar/TravelButtonsContainer" unique_id=549479222]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(100, 0)
-layout_mode = 2
-text = "The Waste"
-
-[node name="TravelShelterButton" type="Button" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar/TravelButtonsContainer" unique_id=837740150]
+[node name="TravelShelterButton" type="Button" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar/TravelButtonsContainer" unique_id=549479222]
 unique_name_in_owner = true
 visible = false
 custom_minimum_size = Vector2(100, 0)
@@ -98,7 +92,9 @@ unique_name_in_owner = true
 visible = false
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
+disabled = true
 text = "Guild Hall"
+tooltip_text = "Coming soon"
 
 [node name="MainRowMargin" type="MarginContainer" parent="CanvasLayerHud/OuterVBox" unique_id=1810782044]
 layout_mode = 2
@@ -227,6 +223,50 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 layout_mode = 2
 theme_override_constants/separation = 6
 
+[node name="LevelXpBar" type="HBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="LevelLabel" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox/LevelXpBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Lv 0"
+
+[node name="XpProgressBar" type="ProgressBar" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox/LevelXpBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 100.0
+value = 0.0
+show_percentage = false
+custom_minimum_size = Vector2(0, 14)
+
+[node name="XpLabel" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox/LevelXpBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+text = "0 / 20 XP"
+
+[node name="SkillPointsLabel" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox/LevelXpBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.9, 0.85, 0.4, 1)
+text = ""
+
+[node name="DebugLevelUpButton" type="Button" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox/LevelXpBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Lvl+"
+
+[node name="LevelXpSep" type="HSeparator" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox"]
+layout_mode = 2
+
 [node name="ActivitiesTitleBar" type="HBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox" unique_id=1714569293]
 layout_mode = 2
 
@@ -285,6 +325,12 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(120, 36)
 layout_mode = 2
 text = "Social"
+
+[node name="SkillsMenuButton" type="Button" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel/BottomMenuBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 36)
+layout_mode = 2
+text = "Skills"
 
 [node name="SystemMenuButton" type="Button" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel/BottomMenuBar" unique_id=1793678046]
 unique_name_in_owner = true
@@ -495,6 +541,62 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("6_guild")
+
+[node name="SkillsPopup" type="MarginContainer" parent="CanvasLayerPopups"]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="CenterSkills" type="CenterContainer" parent="CanvasLayerPopups/SkillsPopup"]
+layout_mode = 2
+mouse_filter = 0
+
+[node name="SkillsPanel" type="PanelContainer" parent="CanvasLayerPopups/SkillsPopup/CenterSkills"]
+custom_minimum_size = Vector2(520, 420)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="SkillsScroll" type="ScrollContainer" parent="CanvasLayerPopups/SkillsPopup/CenterSkills/SkillsPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="SkillsVBox" type="VBoxContainer" parent="CanvasLayerPopups/SkillsPopup/CenterSkills/SkillsPanel/SkillsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="SkillsHeader" type="Label" parent="CanvasLayerPopups/SkillsPopup/CenterSkills/SkillsPanel/SkillsScroll/SkillsVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Skill Tree"
+horizontal_alignment = 1
+
+[node name="SkillsAvailableLabel" type="Label" parent="CanvasLayerPopups/SkillsPopup/CenterSkills/SkillsPanel/SkillsScroll/SkillsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.9, 0.85, 0.4, 1)
+text = "Available Skill Points: 0"
+horizontal_alignment = 1
+
+[node name="SkillsHeaderSep" type="HSeparator" parent="CanvasLayerPopups/SkillsPopup/CenterSkills/SkillsPanel/SkillsScroll/SkillsVBox"]
+layout_mode = 2
+
+[node name="SkillsList" type="VBoxContainer" parent="CanvasLayerPopups/SkillsPopup/CenterSkills/SkillsPanel/SkillsScroll/SkillsVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
 
 [node name="SystemPopup" type="MarginContainer" parent="CanvasLayerPopups" unique_id=45034347]
 unique_name_in_owner = true

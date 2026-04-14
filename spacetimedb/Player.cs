@@ -40,7 +40,7 @@ public static partial class Module {
             Identity = ctx.Sender,
             DisplayName = displayName,
             Online = true,
-            Location = LocationType.Waste
+            Location = LocationType.Shelter
         });
 
         SetStat(ctx, ctx.Sender, StatType.Health, 5);
@@ -53,55 +53,51 @@ public static partial class Module {
         SetStat(ctx, ctx.Sender, StatType.Dexterity, 1);
         SetStat(ctx, ctx.Sender, StatType.KillSpeed, 1);
 
-        StartWasteSchedules(ctx, ctx.Sender);
+        ctx.Db.PlayerLevel.Insert(new PlayerLevel
+        {
+            Owner = ctx.Sender,
+            Level = 0,
+            Xp = 0,
+            AvailableSkillPoints = 0
+        });
+
+        StartShelterSchedules(ctx, ctx.Sender);
 
         ctx.Db.Activity.Insert(new Activity{
             Participant = ctx.Sender,
             Type = ActivityType.Scavenge,
             Cost = [],
             DurationMs = 500,
-            RequiredLocation = LocationType.Waste,
-            UnlockCriteria = [],
+            RequiredLocation = LocationType.Shelter,
+            RequiredLevel = null,
+            RequiredStructure = null,
+            RequiredSkillId = null,
             Level = 1
         });
 
         ctx.Db.Activity.Insert(new Activity{
             Participant = ctx.Sender,
-            Type = ActivityType.LootBigWood,
+            Type = ActivityType.ChopWood,
             Cost = [],
-            DurationMs = 500,
-            RequiredLocation = LocationType.Waste,
-            UnlockCriteria = [],
+            DurationMs = 3000,
+            RequiredLocation = LocationType.Shelter,
+            RequiredLevel = 3,
+            RequiredStructure = null,
+            RequiredSkillId = null,
             Level = 1
         });
 
-        ctx.Db.Activity.Insert(new Activity {
+        ctx.Db.Activity.Insert(new Activity{
             Participant = ctx.Sender,
-            Type = ActivityType.CarbLoad,
-            Cost = [
-                new ActivityCost{Type = ResourceType.Food, Amount = 60}
-            ],
-            DurationMs = 2000,
-            RequiredLocation = null,
-            UnlockCriteria = [],
+            Type = ActivityType.Mine,
+            Cost = [],
+            DurationMs = 3000,
+            RequiredLocation = LocationType.Shelter,
+            RequiredLevel = 5,
+            RequiredStructure = null,
+            RequiredSkillId = null,
             Level = 1
         });
-
-        ctx.Db.Activity.Insert(new Activity {
-            Participant = ctx.Sender,
-            Type = ActivityType.BuildShelter,
-            Cost = [
-                new ActivityCost{Type = ResourceType.Wood, Amount = 50},
-                new ActivityCost{Type = ResourceType.Metal, Amount = 30},
-                new ActivityCost{Type = ResourceType.Fabric, Amount = 20}
-            ],
-            DurationMs = 10_000,
-            RequiredLocation = LocationType.Waste,
-            UnlockCriteria = [],
-            Level = 1
-        });
-
-        EnsureSearchActivities(ctx, ctx.Sender);
     }
 
     [SpacetimeDB.Reducer]
@@ -136,6 +132,8 @@ public static partial class Module {
             Resource = resourceType,
             Amount = amount
         });
+
+        GrantExperience(ctx, ctx.Sender, 1);
     }
 
     [SpacetimeDB.Reducer]

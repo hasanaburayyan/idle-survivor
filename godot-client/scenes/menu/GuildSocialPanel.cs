@@ -234,12 +234,16 @@ public partial class GuildSocialPanel : VBoxContainer
 		_enterSessionButton = new Button();
 		_enterSessionButton.Text = "Enter Guild Hall";
 		_enterSessionButton.CustomMinimumSize = new Godot.Vector2(140, 36);
+		_enterSessionButton.Disabled = true;
+		_enterSessionButton.TooltipText = "Coming soon";
 		_enterSessionButton.Pressed += OnEnterSessionPressed;
 		sessionRow.AddChild(_enterSessionButton);
 
 		_leaveSessionButton = new Button();
 		_leaveSessionButton.Text = "Leave Guild Hall";
 		_leaveSessionButton.CustomMinimumSize = new Godot.Vector2(140, 36);
+		_leaveSessionButton.Disabled = true;
+		_leaveSessionButton.TooltipText = "Coming soon";
 		_leaveSessionButton.Pressed += OnLeaveSessionPressed;
 		sessionRow.AddChild(_leaveSessionButton);
 		sessionPanel.AddChild(sessionRow);
@@ -867,7 +871,7 @@ public partial class GuildSocialPanel : VBoxContainer
 		var player = conn.Db.Player.Identity.Find(SpacetimeNetworkManager.Instance.LocalIdentity);
 		if (player?.Location == LocationType.GuildHall)
 		{
-			conn.Reducers.Travel(LocationType.Waste);
+			conn.Reducers.Travel(LocationType.Shelter);
 			EmitSignal(SignalName.GuildSessionChanged, false);
 		}
 		conn.Reducers.LeaveGuild();
@@ -895,7 +899,7 @@ public partial class GuildSocialPanel : VBoxContainer
 
 	private void OnLeaveSessionPressed()
 	{
-		SpacetimeNetworkManager.Instance.Conn.Reducers.Travel(LocationType.Waste);
+		SpacetimeNetworkManager.Instance.Conn.Reducers.Travel(LocationType.Shelter);
 		EmitSignal(SignalName.GuildSessionChanged, false);
 		CallDeferred(nameof(DeferredRefreshSocial));
 	}

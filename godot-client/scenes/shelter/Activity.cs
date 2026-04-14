@@ -24,20 +24,22 @@ public partial class Activity : VBoxContainer
 	private ulong trackingId;
 	private SpacetimeDB.Types.ActiveTask? currentTask;
 
-	private static Activity s_autoRepeatActivity;
+	private static int s_autoRepeatCount;
 
 	private bool _autoRepeatArmed;
 
 	private SpacetimeDB.Identity _trackedIdentity;
 
-	/// <summary>Client-side progress fill for the matching activity only; not driven by per-frame DB reads.</summary>
 	private bool _progressAnimating;
 	private ulong _progressLocalStartUsec;
 	private double _progressInitialPercent;
 	private ulong _progressRemainingUsec;
 
+	private bool _startActivityPending;
+
 	private bool _playerStatHandlersRegistered;
 	private bool _resourceHandlersRegistered;
+	private bool _playerLevelHandlersRegistered;
 
 	public override void _Ready()
 	{
@@ -59,15 +61,10 @@ public partial class Activity : VBoxContainer
 
 	public override void _ExitTree()
 	{
-		if (ReferenceEquals(s_autoRepeatActivity, this))
-		{
-			s_autoRepeatActivity = null;
-		}
-
 		var conn = SpacetimeNetworkManager.Instance?.Conn;
 		if (conn != null)
 		{
-			conn.Reducers.OnStartActivity -= OnStartActivityReducer;
+			conn.Reducers.OnStartActivity -= OnStartActivityReducerInstance;
 			conn.Reducers.OnUpgradeActivity -= OnUpgradeActivityReducer;
 
 			conn.Db.Activity.OnUpdate -= OnTrackedActivityUpdate;
@@ -95,7 +92,22 @@ public partial class Activity : VBoxContainer
 			_resourceHandlersRegistered = false;
 		}
 
-		_autoRepeatArmed = false;
+		if (_playerLevelHandlersRegistered)
+		{
+			if (conn != null)
+			{
+				conn.Db.PlayerLevel.OnInsert -= OnLocalPlayerLevelInsert;
+				conn.Db.PlayerLevel.OnUpdate -= OnLocalPlayerLevelUpdate;
+			}
+			_playerLevelHandlersRegistered = false;
+		}
+
+		if (_autoRepeatArmed)
+		{
+			_autoRepeatArmed = false;
+			s_autoRepeatCount = Math.Max(0, s_autoRepeatCount - 1);
+		}
+		_startActivityPending = false;
 		base._ExitTree();
 	}
 
@@ -104,8 +116,8 @@ public partial class Activity : VBoxContainer
 		trackingId = id;
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 
-		conn.Reducers.OnStartActivity -= OnStartActivityReducer;
-		conn.Reducers.OnStartActivity += OnStartActivityReducer;
+		conn.Reducers.OnStartActivity -= OnStartActivityReducerInstance;
+		conn.Reducers.OnStartActivity += OnStartActivityReducerInstance;
 		conn.Reducers.OnUpgradeActivity -= OnUpgradeActivityReducer;
 		conn.Reducers.OnUpgradeActivity += OnUpgradeActivityReducer;
 
@@ -124,10 +136,17 @@ public partial class Activity : VBoxContainer
 		conn.Db.ResourceTracker.OnUpdate += OnLocalResourceTrackerChangeUpdate;
 		_resourceHandlersRegistered = true;
 
-		var existingTask = conn.Db.ActiveTask.Participant.Find(_trackedIdentity);
-		if (existingTask is SpacetimeDB.Types.ActiveTask task)
+		conn.Db.PlayerLevel.OnInsert += OnLocalPlayerLevelInsert;
+		conn.Db.PlayerLevel.OnUpdate += OnLocalPlayerLevelUpdate;
+		_playerLevelHandlersRegistered = true;
+
+		foreach (var task in conn.Db.ActiveTask.Participant.Filter(_trackedIdentity))
 		{
-			OnActiveTaskStarted(task);
+			if (activity is not null && task.Type == activity.Type)
+			{
+				OnActiveTaskStarted(task);
+				break;
+			}
 		}
 
 		conn.Db.ActiveTask.OnInsert += OnTrackedActiveTaskInsert;
@@ -149,7 +168,7 @@ public partial class Activity : VBoxContainer
 	private void OnTrackedActiveTaskDelete(SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.ActiveTask task)
 	{
 		if (task.Participant != _trackedIdentity) return;
-		if (currentTask is null) return;
+		if (currentTask is null || currentTask?.Id != task.Id) return;
 		OnActiveTaskFinished(task);
 	}
 
@@ -181,6 +200,20 @@ public partial class Activity : VBoxContainer
 		RefreshFormat();
 	}
 
+	private void OnLocalPlayerLevelInsert(SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.PlayerLevel row)
+	{
+		if (row.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
+			return;
+		RefreshFormat();
+	}
+
+	private void OnLocalPlayerLevelUpdate(SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.PlayerLevel oldRow, SpacetimeDB.Types.PlayerLevel newRow)
+	{
+		if (newRow.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
+			return;
+		RefreshFormat();
+	}
+
 	private void OnUpgradeActivityReducer(SpacetimeDB.Types.ReducerEventContext ctx, ActivityType type)
 	{
 		var conn = SpacetimeNetworkManager.Instance?.Conn;
@@ -201,51 +234,47 @@ public partial class Activity : VBoxContainer
 
 	private void ToggleAutoRepeat()
 	{
-		if (_autoRepeatArmed && ReferenceEquals(s_autoRepeatActivity, this))
+		if (_autoRepeatArmed)
 		{
 			_autoRepeatArmed = false;
-			s_autoRepeatActivity = null;
+			s_autoRepeatCount = Math.Max(0, s_autoRepeatCount - 1);
 			RefreshFormat();
 			return;
 		}
 
-		if (s_autoRepeatActivity != null && !ReferenceEquals(s_autoRepeatActivity, this))
-		{
-			s_autoRepeatActivity._autoRepeatArmed = false;
-			s_autoRepeatActivity.RefreshFormat();
-		}
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+		int maxSlots = GetMaxAutoSlots(conn, localId);
+		if (s_autoRepeatCount >= maxSlots)
+			return;
 
-		s_autoRepeatActivity = this;
 		_autoRepeatArmed = true;
+		s_autoRepeatCount++;
 		RefreshFormat();
 
-		var conn = SpacetimeNetworkManager.Instance.Conn;
 		var row = conn.Db.Activity.Id.Find(trackingId);
-		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
 		bool alreadyRunningThis = currentTask != null && currentTask?.Type == row?.Type;
 		if (!alreadyRunningThis && row is not null && ActivityMeetsUnlockCriteria(conn, localId, row))
 			RequestStartActivity();
 	}
 
-	private static void OnStartActivityReducer(SpacetimeDB.Types.ReducerEventContext ctx, SpacetimeDB.Types.ActivityType type)
+	private void OnStartActivityReducerInstance(SpacetimeDB.Types.ReducerEventContext ctx, SpacetimeDB.Types.ActivityType type)
 	{
+		if (!_autoRepeatArmed) return;
+		var conn = SpacetimeNetworkManager.Instance?.Conn;
+		if (conn == null) return;
+		if (conn.Db.Activity.Id.Find(trackingId) is not SpacetimeDB.Types.Activity activity
+			|| activity.Type != type)
+			return;
+
 		switch (ctx.Event.Status)
 		{
 			case Status.Failed:
 			case Status.OutOfEnergy:
-				var row = s_autoRepeatActivity;
-				if (row == null || !row._autoRepeatArmed) return;
-				var conn = SpacetimeNetworkManager.Instance?.Conn;
-				if (conn == null) return;
-				if (conn.Db.Activity.Id.Find(row.trackingId) is not SpacetimeDB.Types.Activity activity
-					|| activity.Type != type)
-				{
-					return;
-				}
-
-				row._autoRepeatArmed = false;
-				s_autoRepeatActivity = null;
-				row.RefreshFormat();
+				_startActivityPending = false;
+				_autoRepeatArmed = false;
+				s_autoRepeatCount = Math.Max(0, s_autoRepeatCount - 1);
+				RefreshFormat();
 				break;
 		}
 	}
@@ -256,6 +285,7 @@ public partial class Activity : VBoxContainer
 		if (activity is null || task.Type != activity.Type)
 			return;
 
+		_startActivityPending = false;
 		currentTask = task;
 		RefreshFormat();
 
@@ -290,9 +320,7 @@ public partial class Activity : VBoxContainer
 		if (activity is null)
 			return;
 
-		if (_autoRepeatArmed
-			&& ReferenceEquals(s_autoRepeatActivity, this)
-			&& finishedTask.Type == activity.Type)
+		if (_autoRepeatArmed && finishedTask.Type == activity.Type)
 		{
 			var player = conn.Db.Player.Identity.Find(SpacetimeNetworkManager.Instance.LocalIdentity);
 			if (player is not null
@@ -306,7 +334,7 @@ public partial class Activity : VBoxContainer
 
 	public void TryResumeAutoRepeat()
 	{
-		if (!_autoRepeatArmed || !ReferenceEquals(s_autoRepeatActivity, this) || currentTask != null)
+		if (!_autoRepeatArmed || currentTask != null)
 			return;
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		var activity = conn.Db.Activity.Id.Find(trackingId);
@@ -351,29 +379,9 @@ public partial class Activity : VBoxContainer
 		ProgressBar.Value = Math.Clamp(_progressInitialPercent + deltaP, 0.0, 100.0);
 	}
 
-	public static bool IsCraftableActivityType(ActivityType type) => type switch
-	{
-		ActivityType.BuildDumbbells => true,
-		ActivityType.BuildBookshelf => true,
-		ActivityType.BuildDartBoard => true,
-		ActivityType.BuildMeditationNook => true,
-		ActivityType.BuildStairStepper => true,
-		ActivityType.BuildPingPongTable => true,
-		_ => false
-	};
-
-	private static bool ActivityTypeSupportsUpgrade(ActivityType type) => type switch
-	{
-		ActivityType.BuildShelter => false,
-		_ when IsCraftableActivityType(type) => false,
-		_ => true
-	};
-
-	/// <summary>Must match spacetimedb/Activities.cs ScaledUpgradeCost.</summary>
 	private static ulong ScaledUpgradeCostPreview(ulong baseAmount, uint level) =>
 		baseAmount * (ulong)level * (ulong)level;
 
-	/// <summary>Must match spacetimedb/Activities.cs AppendNextUpgradeCosts.</summary>
 	private static void AppendNextUpgradeCostsPreview(ActivityType type, uint currentLevel, List<ActivityCost> dest)
 	{
 		void Add(ResourceType rt, ulong baseAmt) =>
@@ -389,52 +397,13 @@ public partial class Activity : VBoxContainer
 				Add(ResourceType.Fabric, 5);
 				Add(ResourceType.Parts, 5);
 				break;
-			case ActivityType.LootBigWood:
-				Add(ResourceType.Money, 12);
-				break;
-			case ActivityType.SearchFood:
-				Add(ResourceType.Metal, 10);
-				break;
-			case ActivityType.SearchMoney:
-				Add(ResourceType.Wood, 10);
-				break;
-			case ActivityType.SearchWood:
-				Add(ResourceType.Fabric, 10);
-				break;
-			case ActivityType.SearchMetal:
-				Add(ResourceType.Food, 10);
-				break;
-			case ActivityType.SearchFabric:
-				Add(ResourceType.Parts, 10);
-				break;
-			case ActivityType.SearchParts:
-				Add(ResourceType.Money, 10);
-				break;
-			case ActivityType.Salvage:
+			case ActivityType.ChopWood:
 				Add(ResourceType.Food, 8);
+				Add(ResourceType.Metal, 4);
+				break;
+			case ActivityType.Mine:
 				Add(ResourceType.Wood, 8);
-				Add(ResourceType.Fabric, 8);
-				break;
-			case ActivityType.Study:
-				Add(ResourceType.Food, 15);
-				break;
-			case ActivityType.Focus:
-				Add(ResourceType.Parts, 15);
-				break;
-			case ActivityType.CarbLoad:
-				Add(ResourceType.Money, 14);
-				break;
-			case ActivityType.TrainStrength:
-				Add(ResourceType.Fabric, 15);
-				break;
-			case ActivityType.TrainWit:
-				Add(ResourceType.Metal, 15);
-				break;
-			case ActivityType.TrainEndurance:
-				Add(ResourceType.Money, 15);
-				break;
-			case ActivityType.TrainDexterity:
-				Add(ResourceType.Food, 15);
+				Add(ResourceType.Food, 4);
 				break;
 			default:
 				break;
@@ -461,78 +430,89 @@ public partial class Activity : VBoxContainer
 	public static string GetActivityDisplayName(ActivityType type) => type switch
 	{
 		ActivityType.Scavenge => "Scavenge",
-		ActivityType.LootBigWood => "Loot Big Wood",
-		ActivityType.CarbLoad => "Carb Load",
-		ActivityType.Study => "Study",
-		ActivityType.Focus => "Focus",
-		ActivityType.BuildShelter => "Build Shelter",
-		ActivityType.Salvage => "Salvage",
-		ActivityType.SearchFood => "Search for Food",
-		ActivityType.SearchMoney => "Search for Money",
-		ActivityType.SearchWood => "Search for Wood",
-		ActivityType.SearchMetal => "Search for Metal",
-		ActivityType.SearchFabric => "Search for Fabric",
-		ActivityType.SearchParts => "Search for Parts",
-		ActivityType.TrainStrength => "Train Strength",
-		ActivityType.TrainWit => "Train Wit",
-		ActivityType.TrainEndurance => "Train Endurance",
-		ActivityType.TrainDexterity => "Train Dexterity",
-		ActivityType.BuildDumbbells => "Build Dumbbells",
-		ActivityType.BuildBookshelf => "Build Bookshelf",
-		ActivityType.BuildDartBoard => "Build Dart Board",
-		ActivityType.BuildMeditationNook => "Build Meditation Nook",
-		ActivityType.BuildStairStepper => "Build Stair Stepper",
-		ActivityType.BuildPingPongTable => "Build Ping Pong Table",
+		ActivityType.ChopWood => "Chop Wood",
+		ActivityType.Mine => "Mine",
 		_ => type.ToString()
 	};
 
-	private static int GetStatValue(DbConnection conn, SpacetimeDB.Identity owner, StatType stat)
+	private static int GetMaxAutoSlots(DbConnection conn, SpacetimeDB.Identity owner)
 	{
-		foreach (var row in conn.Db.PlayerStat.ByStatOwnerStat.Filter((Owner: owner, Stat: stat)))
-			return row.Value;
-		return 0;
+		int slots = 0;
+		foreach (var skillDef in conn.Db.SkillDefinition.Iter())
+		{
+			if (!skillDef.Name.StartsWith("Auto-")) continue;
+			if (conn.Db.PlayerSkill.BySkillOwnerDef
+				.Filter((Owner: owner, SkillDefinitionId: skillDef.Id)).Any())
+				slots++;
+		}
+		return slots;
 	}
 
-	public static ulong GetEffectiveDurationMs(SpacetimeDB.Types.Activity activity, DbConnection conn, SpacetimeDB.Identity owner)
+	private static uint GetPlayerLevel(DbConnection conn, SpacetimeDB.Identity owner)
 	{
-		StatType? scalingStat = activity.Type switch
-		{
-			ActivityType.Study => StatType.Intelligence,
-			ActivityType.Focus => StatType.Perception,
-			ActivityType.TrainStrength => StatType.Strength,
-			ActivityType.TrainWit => StatType.Wit,
-			ActivityType.TrainEndurance => StatType.Endurance,
-			ActivityType.TrainDexterity => StatType.Dexterity,
-			_ => null
-		};
-		if (scalingStat is not StatType s)
-			return activity.DurationMs;
-		var effective = activity.DurationMs / (1.0 + GetStatValue(conn, owner, s) * 0.1);
-		return Math.Max(250, (ulong)effective);
+		var pl = conn.Db.PlayerLevel.Owner.Find(owner);
+		return pl?.Level ?? 0;
 	}
 
-	private static bool ActivityMeetsUnlockCriteria(DbConnection conn, SpacetimeDB.Identity owner, SpacetimeDB.Types.Activity activity)
+	public static bool ActivityMeetsUnlockCriteria(DbConnection conn, SpacetimeDB.Identity owner, SpacetimeDB.Types.Activity activity)
 	{
-		foreach (var c in activity.UnlockCriteria)
+		if (activity.RequiredLevel is uint reqLevel)
 		{
-			if (GetStatValue(conn, owner, c.Stat) < c.MinValue)
+			if (GetPlayerLevel(conn, owner) < reqLevel)
 				return false;
 		}
+
+		if (activity.RequiredStructure is string reqStruct)
+		{
+			bool found = false;
+			foreach (var def in conn.Db.StructureDefinition.Iter())
+			{
+				if (def.Name != reqStruct) continue;
+				if (conn.Db.PlayerStructure.ByOwnerAndDefinition
+					.Filter((Owner: owner, DefinitionId: def.Id)).Any())
+				{
+					found = true;
+				}
+				break;
+			}
+			if (!found) return false;
+		}
+
+		if (activity.RequiredSkillId is ulong reqSkillId)
+		{
+			if (!conn.Db.PlayerSkill.BySkillOwnerDef
+				.Filter((Owner: owner, SkillDefinitionId: reqSkillId)).Any())
+				return false;
+		}
+
 		return true;
+	}
+
+	private static string GetUnlockRequirementText(SpacetimeDB.Types.Activity activity)
+	{
+		var parts = new List<string>();
+		if (activity.RequiredLevel is uint reqLevel)
+			parts.Add($"Level {reqLevel}");
+		if (activity.RequiredStructure is string reqStruct)
+			parts.Add($"Structure: {reqStruct}");
+		if (activity.RequiredSkillId is ulong)
+			parts.Add("Skill required");
+		return parts.Count > 0 ? "Requires: " + string.Join(", ", parts) : "";
 	}
 
 	private void DisarmAutoRepeatIfThis()
 	{
-		if (_autoRepeatArmed && ReferenceEquals(s_autoRepeatActivity, this))
+		if (_autoRepeatArmed)
 		{
 			_autoRepeatArmed = false;
-			s_autoRepeatActivity = null;
+			_startActivityPending = false;
+			s_autoRepeatCount = Math.Max(0, s_autoRepeatCount - 1);
 		}
 	}
 
 	private void Format(SpacetimeDB.Types.Activity activity)
 	{
-		if (IsCraftableActivityType(activity.Type))
+		if (activity.Type == ActivityType.Scavenge)
 		{
 			DisarmAutoRepeatIfThis();
 			Visible = false;
@@ -544,10 +524,8 @@ public partial class Activity : VBoxContainer
 
 		var player = conn.Db.Player.Identity.Find(localId);
 		bool locOk = player is not null && IsLocationValid(activity.RequiredLocation, player.Location);
-		bool unlocked = ActivityMeetsUnlockCriteria(conn, localId, activity);
-		bool show = locOk && unlocked;
 
-		if (!show)
+		if (!locOk)
 		{
 			DisarmAutoRepeatIfThis();
 			Visible = false;
@@ -556,9 +534,23 @@ public partial class Activity : VBoxContainer
 
 		Visible = true;
 
+		bool unlocked = ActivityMeetsUnlockCriteria(conn, localId, activity);
+
+		if (!unlocked)
+		{
+			DisarmAutoRepeatIfThis();
+			var lockText = GetUnlockRequirementText(activity);
+			ActivateButton.Text = $"{GetActivityDisplayName(activity.Type)} [LOCKED]";
+			ActivateButton.Disabled = true;
+			CostLabel.Text = lockText;
+			DurationLabel.Text = "";
+			UpgradeRow.Visible = false;
+			ProgressBar.Value = 0;
+			return;
+		}
+
 		var title = $"{GetActivityDisplayName(activity.Type)} Lv{activity.Level}" + (_autoRepeatArmed ? " (AUTO)" : "");
 		ActivateButton.Text = title;
-
 		ActivateButton.Disabled = false;
 
 		var costParts = new List<string>();
@@ -566,34 +558,28 @@ public partial class Activity : VBoxContainer
 			costParts.Add("Cost: " + string.Join(", ", activity.Cost.Select(c => $"{c.Amount} {c.Type}")));
 		CostLabel.Text = string.Join(" — ", costParts);
 
-		var effectiveMs = GetEffectiveDurationMs(activity, conn, localId);
-		var seconds = effectiveMs / 1000.0;
+		var seconds = activity.DurationMs / 1000.0;
 		DurationLabel.Text = seconds >= 1.0 ? $"{seconds:F0}s" : $"{seconds:F1}s";
 
-		if (ActivityTypeSupportsUpgrade(activity.Type))
+		UpgradeRow.Visible = true;
+		var upgradeCosts = new List<ActivityCost>();
+		AppendNextUpgradeCostsPreview(activity.Type, activity.Level, upgradeCosts);
+		if (upgradeCosts.Count == 0)
 		{
-			UpgradeRow.Visible = true;
-			var upgradeCosts = new List<ActivityCost>();
-			AppendNextUpgradeCostsPreview(activity.Type, activity.Level, upgradeCosts);
-			if (upgradeCosts.Count == 0)
-			{
-				UpgradeCostLabel.Text = "";
-				UpgradeButton.Disabled = true;
-			}
-			else
-			{
-				UpgradeCostLabel.Text = "Next: " + string.Join(", ", upgradeCosts.Select(c => $"{c.Amount} {c.Type}"));
-				UpgradeButton.Disabled = !PlayerCanAfford(conn, localId, upgradeCosts);
-			}
+			UpgradeCostLabel.Text = "";
+			UpgradeButton.Disabled = true;
 		}
 		else
 		{
-			UpgradeRow.Visible = false;
+			UpgradeCostLabel.Text = "Next: " + string.Join(", ", upgradeCosts.Select(c => $"{c.Amount} {c.Type}"));
+			UpgradeButton.Disabled = !PlayerCanAfford(conn, localId, upgradeCosts);
 		}
 	}
 
 	private void OnActivatePressed()
 	{
+		if (currentTask != null)
+			return;
 		RequestStartActivity();
 	}
 
@@ -602,20 +588,15 @@ public partial class Activity : VBoxContainer
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		if (conn.Db.Activity.Id.Find(trackingId) is not SpacetimeDB.Types.Activity activity)
 			return;
-		if (!ActivityTypeSupportsUpgrade(activity.Type))
-			return;
 		conn.Reducers.UpgradeActivity(activity.Type);
 	}
 
 	private void RequestStartActivity()
 	{
-		if (s_autoRepeatActivity != null && !ReferenceEquals(s_autoRepeatActivity, this))
-		{
-			s_autoRepeatActivity._autoRepeatArmed = false;
-			s_autoRepeatActivity.RefreshFormat();
-			s_autoRepeatActivity = null;
-		}
+		if (_startActivityPending)
+			return;
 
+		_startActivityPending = true;
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		var activity = conn.Db.Activity.Id.Find(trackingId);
 		conn.Reducers.StartActivity(activity.Type);

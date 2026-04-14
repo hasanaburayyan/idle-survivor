@@ -8,7 +8,7 @@ public partial class Main : Node2D
 	private Button UseSavedButton;
 	private Button NewIdentityButton;
 
-	private PackedScene WasteScene = GD.Load<PackedScene>("uid://dt6dxcbysqucx");
+	private PackedScene ShelterScene = GD.Load<PackedScene>("uid://dt6dxcbysqucx");
 
 	public override void _Ready()
 	{
@@ -48,7 +48,7 @@ public partial class Main : Node2D
 
 		StartButton.Pressed += () =>
 		{
-			GetTree().ChangeSceneToPacked(WasteScene);
+			GetTree().ChangeSceneToPacked(ShelterScene);
 		};
 	}
 
