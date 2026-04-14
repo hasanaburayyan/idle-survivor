@@ -1,49 +1,50 @@
-[gd_scene format=3 uid="uid://dt6dxcbysqucx"]
+[gd_scene format=4 uid="uid://dt6dxcbysqucx"]
 
 [ext_resource type="Script" uid="uid://cva7b2v5axjgv" path="res://scenes/waste/Waste.cs" id="1_u24a1"]
 [ext_resource type="Script" uid="uid://lgnpk70neftg" path="res://scenes/waste/PlayerStatsPanel.cs" id="2_stats"]
-[ext_resource type="Theme" path="res://theme/default_theme.tres" id="3_theme"]
-[ext_resource type="Script" path="res://scenes/waste/PlayfieldBackground.cs" id="4_bg"]
-[ext_resource type="Script" path="res://scenes/waste/CharacterProfilePanel.cs" id="5_profile"]
-[ext_resource type="Script" path="res://scenes/menu/GuildSocialPanel.cs" id="6_guild"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.12, 0.12, 0.15, 0.9)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_left = 8
-corner_radius_bottom_right = 8
-content_margin_left = 12.0
-content_margin_top = 10.0
-content_margin_right = 12.0
-content_margin_bottom = 12.0
+[ext_resource type="Theme" uid="uid://dip5q8cif3hmy" path="res://theme/default_theme.tres" id="3_theme"]
+[ext_resource type="Script" uid="uid://dgx7h6bjkkv0r" path="res://scenes/waste/PlayfieldBackground.cs" id="4_bg"]
+[ext_resource type="PackedScene" path="res://scenes/waste/playfield_map.tscn" id="7_pfmap"]
+[ext_resource type="Script" uid="uid://la7tp3fccedg" path="res://scenes/waste/CharacterProfilePanel.cs" id="5_profile"]
+[ext_resource type="Script" uid="uid://bn807yekrxs74" path="res://scenes/menu/GuildSocialPanel.cs" id="6_guild"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_locationbar"]
-bg_color = Color(0.1, 0.1, 0.13, 0.95)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_left = 8
-corner_radius_bottom_right = 8
 content_margin_left = 16.0
 content_margin_top = 8.0
 content_margin_right = 16.0
 content_margin_bottom = 8.0
+bg_color = Color(0.1, 0.1, 0.13, 0.95)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+content_margin_left = 12.0
+content_margin_top = 10.0
+content_margin_right = 12.0
+content_margin_bottom = 12.0
+bg_color = Color(0.12, 0.12, 0.15, 0.9)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bottombar"]
-bg_color = Color(0.09, 0.09, 0.11, 0.98)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
 content_margin_left = 12.0
 content_margin_top = 8.0
 content_margin_right = 12.0
 content_margin_bottom = 8.0
+bg_color = Color(0.09, 0.09, 0.11, 0.98)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
 
-[node name="Waste" type="Node2D"]
+[node name="Waste" type="Node2D" unique_id=950968465]
 script = ExtResource("1_u24a1")
 
-[node name="CanvasLayerHud" type="CanvasLayer" parent="."]
+[node name="CanvasLayerHud" type="CanvasLayer" parent="." unique_id=1702314934]
 
-[node name="OuterVBox" type="VBoxContainer" parent="CanvasLayerHud"]
+[node name="OuterVBox" type="VBoxContainer" parent="CanvasLayerHud" unique_id=569415990]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -52,246 +53,248 @@ grow_vertical = 2
 theme = ExtResource("3_theme")
 theme_override_constants/separation = 4
 
-[node name="LocationBarMargin" type="MarginContainer" parent="CanvasLayerHud/OuterVBox"]
+[node name="LocationBarMargin" type="MarginContainer" parent="CanvasLayerHud/OuterVBox" unique_id=1919267362]
 layout_mode = 2
 theme_override_constants/margin_left = 16
-theme_override_constants/margin_right = 16
 theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 0
 
-[node name="LocationBarPanel" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/LocationBarMargin"]
+[node name="LocationBarPanel" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/LocationBarMargin" unique_id=14761128]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_locationbar")
 
-[node name="LocationBar" type="HBoxContainer" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel"]
+[node name="LocationBar" type="HBoxContainer" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel" unique_id=352673182]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="LocationLabel" type="Label" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar"]
+[node name="LocationLabel" type="Label" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar" unique_id=1988643472]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 18
 text = "Location: The Waste"
-size_flags_horizontal = 3
 
-[node name="TravelButtonsContainer" type="HBoxContainer" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar"]
+[node name="TravelButtonsContainer" type="HBoxContainer" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar" unique_id=796022903]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="TravelWasteButton" type="Button" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar/TravelButtonsContainer"]
+[node name="TravelWasteButton" type="Button" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar/TravelButtonsContainer" unique_id=549479222]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 text = "The Waste"
-custom_minimum_size = Vector2(100, 0)
 
-[node name="TravelShelterButton" type="Button" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar/TravelButtonsContainer"]
+[node name="TravelShelterButton" type="Button" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar/TravelButtonsContainer" unique_id=837740150]
 unique_name_in_owner = true
-layout_mode = 2
 visible = false
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
 text = "Shelter"
-custom_minimum_size = Vector2(100, 0)
 
-[node name="TravelGuildHallButton" type="Button" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar/TravelButtonsContainer"]
+[node name="TravelGuildHallButton" type="Button" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar/TravelButtonsContainer" unique_id=1634524170]
 unique_name_in_owner = true
-layout_mode = 2
 visible = false
-text = "Guild Hall"
 custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+text = "Guild Hall"
 
-[node name="MainRowMargin" type="MarginContainer" parent="CanvasLayerHud/OuterVBox"]
+[node name="MainRowMargin" type="MarginContainer" parent="CanvasLayerHud/OuterVBox" unique_id=1810782044]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/margin_left = 16
-theme_override_constants/margin_right = 16
 theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 4
 
-[node name="MainRow" type="HBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin"]
+[node name="MainRow" type="HBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin" unique_id=1927181820]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="ChatColumn" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow"]
-layout_mode = 2
+[node name="ChatColumn" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow" unique_id=1374641759]
 custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 size_flags_stretch_ratio = 0.35
 theme_override_constants/separation = 6
 
-[node name="RelevantResourcesPanel" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn"]
+[node name="RelevantResourcesPanel" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn" unique_id=1398946060]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="RelevantResourcesVBox" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel"]
+[node name="RelevantResourcesVBox" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel" unique_id=2010299099]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="RelevantResourcesTitle" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox"]
+[node name="RelevantResourcesTitle" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox" unique_id=916975874]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
 theme_override_colors/font_color = Color(0.65, 0.65, 0.7, 1)
+theme_override_font_sizes/font_size = 20
 text = "Resources here"
 horizontal_alignment = 1
 
-[node name="RelevantResourcesBar" type="FlowContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox"]
+[node name="RelevantResourcesBar" type="FlowContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox" unique_id=2029096280]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 4
 
-[node name="RelevantStatsTitle" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox"]
+[node name="RelevantStatsTitle" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox" unique_id=980281629]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
 theme_override_colors/font_color = Color(0.65, 0.65, 0.7, 1)
+theme_override_font_sizes/font_size = 20
 text = "Stats here"
 horizontal_alignment = 1
 
-[node name="RelevantStatsBar" type="FlowContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox"]
+[node name="RelevantStatsBar" type="FlowContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/RelevantResourcesPanel/RelevantResourcesVBox" unique_id=1655518469]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 4
 
-[node name="ChatPanel" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn"]
+[node name="ChatPanel" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn" unique_id=558992624]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="ChatVBox" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/ChatPanel"]
+[node name="ChatVBox" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/ChatPanel" unique_id=2044105576]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="ChatHeader" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/ChatPanel/ChatVBox"]
+[node name="ChatHeader" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/ChatPanel/ChatVBox" unique_id=1367400423]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "Chat"
 horizontal_alignment = 1
 
-[node name="HSeparator" type="HSeparator" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/ChatPanel/ChatVBox"]
+[node name="HSeparator" type="HSeparator" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/ChatPanel/ChatVBox" unique_id=584470995]
 layout_mode = 2
 
-[node name="ChatPlaceholder" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/ChatPanel/ChatVBox"]
+[node name="ChatPlaceholder" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn/ChatPanel/ChatVBox" unique_id=1295533780]
 layout_mode = 2
 size_flags_vertical = 3
 text = "Chat will appear here."
 autowrap_mode = 2
 
-[node name="PlayfieldSplit" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow"]
+[node name="PlayfieldSplit" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow" unique_id=2022663573]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 size_flags_stretch_ratio = 0.65
 theme_override_constants/separation = 8
 
-[node name="SubViewportContainer" type="SubViewportContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit"]
+[node name="SubViewportContainer" type="SubViewportContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit" unique_id=430791582]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 size_flags_stretch_ratio = 0.72
 stretch = true
 
-[node name="SubViewport" type="SubViewport" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/SubViewportContainer"]
+[node name="SubViewport" type="SubViewport" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/SubViewportContainer" unique_id=463187798]
 unique_name_in_owner = true
 handle_input_locally = false
-size = Vector2i(1280, 720)
-render_target_update_mode = 3
+size = Vector2i(721, 358)
+render_target_update_mode = 4
 
-[node name="WorldRoot" type="Node2D" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/SubViewportContainer/SubViewport"]
+[node name="WorldRoot" type="Node2D" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/SubViewportContainer/SubViewport" unique_id=1290087859]
 unique_name_in_owner = true
 
-[node name="PlayfieldBackground" type="Node2D" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/SubViewportContainer/SubViewport/WorldRoot"]
+[node name="PlayfieldBackground" type="Node2D" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/SubViewportContainer/SubViewport/WorldRoot" unique_id=625335943]
 unique_name_in_owner = true
 script = ExtResource("4_bg")
 
-[node name="PlayerSpawnLocation" type="Marker2D" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/SubViewportContainer/SubViewport/WorldRoot"]
+[node name="PlayfieldMap" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/SubViewportContainer/SubViewport/WorldRoot" instance=ExtResource("7_pfmap")]
+
+[node name="PlayerSpawnLocation" type="Marker2D" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/SubViewportContainer/SubViewport/WorldRoot" unique_id=1800401487]
 unique_name_in_owner = true
 position = Vector2(640, 580)
 
-[node name="ActivitiesWindow" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit"]
-layout_mode = 2
+[node name="ActivitiesWindow" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit" unique_id=493606407]
 custom_minimum_size = Vector2(0, 140)
+layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 size_flags_stretch_ratio = 0.28
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="ActivitiesWindowVBox" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow"]
+[node name="ActivitiesWindowVBox" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow" unique_id=1406995174]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="ActivitiesTitleBar" type="HBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox"]
+[node name="ActivitiesTitleBar" type="HBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox" unique_id=1714569293]
 layout_mode = 2
 
-[node name="ActivitiesTitle" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox/ActivitiesTitleBar"]
+[node name="ActivitiesTitle" type="Label" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox/ActivitiesTitleBar" unique_id=372083186]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 18
 text = "Activities"
 horizontal_alignment = 1
 
-[node name="ActivitiesTitleSep" type="HSeparator" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox"]
+[node name="ActivitiesTitleSep" type="HSeparator" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox" unique_id=1181573745]
 layout_mode = 2
 
-[node name="ActivitiesScroll" type="ScrollContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox"]
+[node name="ActivitiesScroll" type="ScrollContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox" unique_id=275565066]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="Activities" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox/ActivitiesScroll"]
+[node name="Activities" type="VBoxContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit/ActivitiesWindow/ActivitiesWindowVBox/ActivitiesScroll" unique_id=312929897]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="BottomBarMargin" type="MarginContainer" parent="CanvasLayerHud/OuterVBox"]
+[node name="BottomBarMargin" type="MarginContainer" parent="CanvasLayerHud/OuterVBox" unique_id=1199483085]
 layout_mode = 2
 theme_override_constants/margin_left = 16
-theme_override_constants/margin_right = 16
 theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 8
 
-[node name="BottomBarPanel" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/BottomBarMargin"]
+[node name="BottomBarPanel" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/BottomBarMargin" unique_id=159656162]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_bottombar")
 
-[node name="BottomMenuBar" type="HBoxContainer" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel"]
+[node name="BottomMenuBar" type="HBoxContainer" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel" unique_id=783982885]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
 alignment = 1
 
-[node name="CharacterMenuButton" type="Button" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel/BottomMenuBar"]
+[node name="CharacterMenuButton" type="Button" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel/BottomMenuBar" unique_id=636965810]
 unique_name_in_owner = true
-layout_mode = 2
 custom_minimum_size = Vector2(120, 36)
+layout_mode = 2
 text = "Character"
 
-[node name="InventoryMenuButton" type="Button" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel/BottomMenuBar"]
+[node name="InventoryMenuButton" type="Button" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel/BottomMenuBar" unique_id=1390525388]
 unique_name_in_owner = true
-layout_mode = 2
 custom_minimum_size = Vector2(120, 36)
+layout_mode = 2
 text = "Crafting"
 
-[node name="SocialMenuButton" type="Button" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel/BottomMenuBar"]
+[node name="SocialMenuButton" type="Button" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel/BottomMenuBar" unique_id=1720167263]
 unique_name_in_owner = true
-layout_mode = 2
 custom_minimum_size = Vector2(120, 36)
+layout_mode = 2
 text = "Social"
 
-[node name="SystemMenuButton" type="Button" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel/BottomMenuBar"]
+[node name="SystemMenuButton" type="Button" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel/BottomMenuBar" unique_id=1793678046]
 unique_name_in_owner = true
-layout_mode = 2
 custom_minimum_size = Vector2(120, 36)
+layout_mode = 2
 text = "System"
 
-[node name="CanvasLayerPopups" type="CanvasLayer" parent="."]
+[node name="CanvasLayerPopups" type="CanvasLayer" parent="." unique_id=129313715]
 layer = 20
 
-[node name="PopupBackdrop" type="ColorRect" parent="CanvasLayerPopups"]
+[node name="PopupBackdrop" type="ColorRect" parent="CanvasLayerPopups" unique_id=358480218]
 unique_name_in_owner = true
 visible = false
 anchors_preset = 15
@@ -302,7 +305,7 @@ grow_vertical = 2
 mouse_filter = 1
 color = Color(0, 0, 0, 0.55)
 
-[node name="CharacterPopup" type="MarginContainer" parent="CanvasLayerPopups"]
+[node name="CharacterPopup" type="MarginContainer" parent="CanvasLayerPopups" unique_id=1220454719]
 unique_name_in_owner = true
 visible = false
 anchors_preset = 15
@@ -316,47 +319,47 @@ theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
 
-[node name="CenterCharacter" type="CenterContainer" parent="CanvasLayerPopups/CharacterPopup"]
+[node name="CenterCharacter" type="CenterContainer" parent="CanvasLayerPopups/CharacterPopup" unique_id=398010872]
 layout_mode = 2
 mouse_filter = 0
 
-[node name="CharacterPanel" type="PanelContainer" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter"]
+[node name="CharacterPanel" type="PanelContainer" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter" unique_id=731639485]
 custom_minimum_size = Vector2(520, 420)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="CharacterScroll" type="ScrollContainer" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel"]
+[node name="CharacterScroll" type="ScrollContainer" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel" unique_id=228207593]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="CharacterVBox" type="VBoxContainer" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel/CharacterScroll"]
+[node name="CharacterVBox" type="VBoxContainer" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel/CharacterScroll" unique_id=173442898]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 10
 
-[node name="CharacterProfilePanel" type="PanelContainer" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel/CharacterScroll/CharacterVBox"]
+[node name="CharacterProfilePanel" type="PanelContainer" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel/CharacterScroll/CharacterVBox" unique_id=1374854255]
 unique_name_in_owner = true
 layout_mode = 2
 script = ExtResource("5_profile")
 
-[node name="PlayerStatsPanel" type="VBoxContainer" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel/CharacterScroll/CharacterVBox"]
+[node name="PlayerStatsPanel" type="VBoxContainer" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel/CharacterScroll/CharacterVBox" unique_id=1759408415]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 6
 script = ExtResource("2_stats")
 
-[node name="HeaderLabel" type="Label" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel/CharacterScroll/CharacterVBox/PlayerStatsPanel"]
+[node name="HeaderLabel" type="Label" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel/CharacterScroll/CharacterVBox/PlayerStatsPanel" unique_id=1129293126]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "Player Stats"
 horizontal_alignment = 1
 
-[node name="HeaderSep" type="HSeparator" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel/CharacterScroll/CharacterVBox/PlayerStatsPanel"]
+[node name="HeaderSep" type="HSeparator" parent="CanvasLayerPopups/CharacterPopup/CenterCharacter/CharacterPanel/CharacterScroll/CharacterVBox/PlayerStatsPanel" unique_id=1513107629]
 layout_mode = 2
 
-[node name="InventoryPopup" type="MarginContainer" parent="CanvasLayerPopups"]
+[node name="InventoryPopup" type="MarginContainer" parent="CanvasLayerPopups" unique_id=1307190297]
 unique_name_in_owner = true
 visible = false
 anchors_preset = 15
@@ -370,68 +373,68 @@ theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
 
-[node name="CenterInventory" type="CenterContainer" parent="CanvasLayerPopups/InventoryPopup"]
+[node name="CenterInventory" type="CenterContainer" parent="CanvasLayerPopups/InventoryPopup" unique_id=992887661]
 layout_mode = 2
 mouse_filter = 0
 
-[node name="InventoryPanel" type="PanelContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory"]
+[node name="InventoryPanel" type="PanelContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory" unique_id=610141075]
 custom_minimum_size = Vector2(520, 420)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="InventoryScroll" type="ScrollContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel"]
+[node name="InventoryScroll" type="ScrollContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel" unique_id=2062331443]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="InventoryVBox" type="VBoxContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll"]
+[node name="InventoryVBox" type="VBoxContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll" unique_id=1136290155]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 10
 
-[node name="ResourcesHeader" type="Label" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox"]
+[node name="ResourcesHeader" type="Label" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox" unique_id=1026881744]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "Resources"
 horizontal_alignment = 1
 
-[node name="ResourcesHeaderSep" type="HSeparator" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox"]
+[node name="ResourcesHeaderSep" type="HSeparator" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox" unique_id=1290987716]
 layout_mode = 2
 
-[node name="LeftSide" type="VBoxContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox"]
+[node name="LeftSide" type="VBoxContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox" unique_id=1172820923]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="CraftingSep" type="HSeparator" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox"]
+[node name="CraftingSep" type="HSeparator" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox" unique_id=563372722]
 layout_mode = 2
 
-[node name="CraftingPanel" type="PanelContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox"]
+[node name="CraftingPanel" type="PanelContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox" unique_id=1577193652]
 unique_name_in_owner = true
-layout_mode = 2
 visible = false
+layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="CraftingVBox" type="VBoxContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox/CraftingPanel"]
+[node name="CraftingVBox" type="VBoxContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox/CraftingPanel" unique_id=127332114]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="CraftingHeader" type="Label" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox/CraftingPanel/CraftingVBox"]
+[node name="CraftingHeader" type="Label" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox/CraftingPanel/CraftingVBox" unique_id=1439548164]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "Crafting"
 horizontal_alignment = 1
 
-[node name="CraftingHeaderSep" type="HSeparator" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox/CraftingPanel/CraftingVBox"]
+[node name="CraftingHeaderSep" type="HSeparator" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox/CraftingPanel/CraftingVBox" unique_id=951465095]
 layout_mode = 2
 
-[node name="CraftingList" type="VBoxContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox/CraftingPanel/CraftingVBox"]
+[node name="CraftingList" type="VBoxContainer" parent="CanvasLayerPopups/InventoryPopup/CenterInventory/InventoryPanel/InventoryScroll/InventoryVBox/CraftingPanel/CraftingVBox" unique_id=670394299]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="SocialPopup" type="MarginContainer" parent="CanvasLayerPopups"]
+[node name="SocialPopup" type="MarginContainer" parent="CanvasLayerPopups" unique_id=1645396370]
 unique_name_in_owner = true
 visible = false
 anchors_preset = 15
@@ -445,54 +448,54 @@ theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
 
-[node name="CenterSocial" type="CenterContainer" parent="CanvasLayerPopups/SocialPopup"]
+[node name="CenterSocial" type="CenterContainer" parent="CanvasLayerPopups/SocialPopup" unique_id=1442599203]
 layout_mode = 2
 mouse_filter = 0
 
-[node name="SocialPanel" type="PanelContainer" parent="CanvasLayerPopups/SocialPopup/CenterSocial"]
+[node name="SocialPanel" type="PanelContainer" parent="CanvasLayerPopups/SocialPopup/CenterSocial" unique_id=303424514]
 custom_minimum_size = Vector2(560, 480)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="SocialScroll" type="ScrollContainer" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel"]
+[node name="SocialScroll" type="ScrollContainer" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel" unique_id=1033439362]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="SocialVBox" type="VBoxContainer" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll"]
+[node name="SocialVBox" type="VBoxContainer" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll" unique_id=2144650782]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 12
 
-[node name="FriendsHeader" type="Label" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll/SocialVBox"]
+[node name="FriendsHeader" type="Label" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll/SocialVBox" unique_id=7565693]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "Friends"
 horizontal_alignment = 1
 
-[node name="FriendsPlaceholder" type="Label" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll/SocialVBox"]
+[node name="FriendsPlaceholder" type="Label" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll/SocialVBox" unique_id=1568439640]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
 text = "Friends list coming soon."
 horizontal_alignment = 1
 
-[node name="FriendsSep" type="HSeparator" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll/SocialVBox"]
+[node name="FriendsSep" type="HSeparator" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll/SocialVBox" unique_id=435990327]
 layout_mode = 2
 
-[node name="GuildHeader" type="Label" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll/SocialVBox"]
+[node name="GuildHeader" type="Label" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll/SocialVBox" unique_id=1108636662]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "Guild"
 horizontal_alignment = 1
 
-[node name="GuildSocialPanel" type="VBoxContainer" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll/SocialVBox"]
+[node name="GuildSocialPanel" type="VBoxContainer" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll/SocialVBox" unique_id=81903545]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("6_guild")
 
-[node name="SystemPopup" type="MarginContainer" parent="CanvasLayerPopups"]
+[node name="SystemPopup" type="MarginContainer" parent="CanvasLayerPopups" unique_id=45034347]
 unique_name_in_owner = true
 visible = false
 anchors_preset = 15
@@ -506,16 +509,16 @@ theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
 
-[node name="CenterSystem" type="CenterContainer" parent="CanvasLayerPopups/SystemPopup"]
+[node name="CenterSystem" type="CenterContainer" parent="CanvasLayerPopups/SystemPopup" unique_id=2093787830]
 layout_mode = 2
 mouse_filter = 0
 
-[node name="SystemPanel" type="PanelContainer" parent="CanvasLayerPopups/SystemPopup/CenterSystem"]
+[node name="SystemPanel" type="PanelContainer" parent="CanvasLayerPopups/SystemPopup/CenterSystem" unique_id=1861235249]
 custom_minimum_size = Vector2(400, 200)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="SystemLabel" type="Label" parent="CanvasLayerPopups/SystemPopup/CenterSystem/SystemPanel"]
+[node name="SystemLabel" type="Label" parent="CanvasLayerPopups/SystemPopup/CenterSystem/SystemPanel" unique_id=2111148713]
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
 text = "Options and settings will appear here."

@@ -28,6 +28,8 @@ public partial class Player : CharacterBody2D
 
 	private enum AnimState { Moving, Idle, Action }
 
+	public bool IsLocal { get; set; }
+
 	public Label DisplayNameLabel;
 	public Label ActivityLabel;
 	private AnimatedSprite2D _sprite;
@@ -48,7 +50,10 @@ public partial class Player : CharacterBody2D
 		_sprite = GetNode<AnimatedSprite2D>("AnimatedSprite2D");
 		LoadAnimations();
 		_sprite.AnimationFinished += OnAnimationFinished;
-		EnterMoving();
+		if (IsLocal)
+			EnterIdle();
+		else
+			EnterMoving();
 	}
 
 	public override void _ExitTree()
@@ -196,12 +201,18 @@ public partial class Player : CharacterBody2D
 	{
 		if (!_animationsLoaded) return;
 
+		if (IsLocal)
+		{
+			ProcessLocalInput();
+			return;
+		}
+
 		_stateTimer -= (float)delta;
 
 		switch (_state)
 		{
 			case AnimState.Moving:
-				ProcessMoving(delta);
+				ProcessAiMoving();
 				break;
 			case AnimState.Idle:
 				if (_stateTimer <= 0)
@@ -212,40 +223,46 @@ public partial class Player : CharacterBody2D
 		}
 	}
 
-	private void ProcessMoving(double delta)
+	private void ProcessLocalInput()
 	{
-		var viewport = GetViewportRect();
-		float halfW = FrameWidth * 0.5f;
-		float halfH = FrameHeight * 0.5f;
-		float leftBound = halfW;
-		float rightBound = viewport.Size.X - halfW;
-		float topBound = halfH;
-		float bottomBound = viewport.Size.Y - halfH;
+		var input = Vector2.Zero;
+		if (Input.IsKeyPressed(Key.W) || Input.IsActionPressed("ui_up")) input.Y -= 1;
+		if (Input.IsKeyPressed(Key.S) || Input.IsActionPressed("ui_down")) input.Y += 1;
+		if (Input.IsKeyPressed(Key.A) || Input.IsActionPressed("ui_left")) input.X -= 1;
+		if (Input.IsKeyPressed(Key.D) || Input.IsActionPressed("ui_right")) input.X += 1;
 
-		Position += _moveDir * MoveSpeed * (float)delta;
-
-		if (Position.X >= rightBound)
+		if (input.LengthSquared() > 0)
 		{
-			Position = new Vector2(rightBound, Position.Y);
-			_moveDir.X *= -1f;
+			input = input.Normalized();
+			Velocity = input * MoveSpeed;
+			_sprite.FlipH = input.X < 0f;
+			if (_state != AnimState.Moving)
+			{
+				_state = AnimState.Moving;
+				PlayAnim("run");
+			}
+		}
+		else
+		{
+			Velocity = Vector2.Zero;
+			if (_state != AnimState.Idle)
+			{
+				_state = AnimState.Idle;
+				PlayAnim("idle");
+			}
+		}
+		MoveAndSlide();
+	}
+
+	private void ProcessAiMoving()
+	{
+		Velocity = _moveDir * MoveSpeed;
+		MoveAndSlide();
+
+		if (GetSlideCollisionCount() > 0)
+		{
+			_moveDir = RandomUnitDirection();
 			_sprite.FlipH = _moveDir.X < 0f;
-		}
-		else if (Position.X <= leftBound)
-		{
-			Position = new Vector2(leftBound, Position.Y);
-			_moveDir.X *= -1f;
-			_sprite.FlipH = _moveDir.X < 0f;
-		}
-
-		if (Position.Y >= bottomBound)
-		{
-			Position = new Vector2(Position.X, bottomBound);
-			_moveDir.Y *= -1f;
-		}
-		else if (Position.Y <= topBound)
-		{
-			Position = new Vector2(Position.X, topBound);
-			_moveDir.Y *= -1f;
 		}
 
 		if (_stateTimer <= 0)

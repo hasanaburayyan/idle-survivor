@@ -21,6 +21,7 @@ public partial class Waste : Node2D
 	private PackedScene _playerScene = GD.Load<PackedScene>("uid://cl6yviutw6arx");
 	private PackedScene _resourceTrackingScene = GD.Load<PackedScene>("uid://bmw2ixd8nj1t8");
 	private PackedScene _activityScene = GD.Load<PackedScene>("uid://bjckoiwufesye");
+	private PackedScene _zombieScene = GD.Load<PackedScene>("uid://cklegshx4bjbl");
 
 	private Dictionary<SpacetimeDB.Identity, Player> _guildMemberSprites = new();
 	private bool _inGuildHall;
@@ -107,11 +108,49 @@ public partial class Waste : Node2D
 		player = conn.Db.Player.Identity.Find(SpacetimeNetworkManager.Instance.LocalIdentity);
 
 		_localPlayerNode = _playerScene.Instantiate<Player>();
+		_localPlayerNode.IsLocal = true;
 		AlignSpawnToPlayfield();
 		_localPlayerNode.ZIndex = 10;
 		_worldRoot.AddChild(_localPlayerNode);
 		_localPlayerNode.SetName(player.DisplayName);
 		_localPlayerNode.BindActivityDisplay(SpacetimeNetworkManager.Instance.LocalIdentity);
+
+		var groundLayer = _worldRoot.GetNode<Node2D>("PlayfieldMap/TileMapLayer");
+		var mapScale = _worldRoot.GetNode<Node2D>("PlayfieldMap").Scale;
+		var buildingLayer = _worldRoot.GetNode<TileMapLayer>("PlayfieldMap/BuildingMapLayer");
+
+		var markerN = groundLayer.GetNode<Marker2D>("ZombieSpawnN");
+		var markerE = groundLayer.GetNode<Marker2D>("ZombieSpawnE");
+		var markerS = groundLayer.GetNode<Marker2D>("ZombieSpawnS");
+		var markerW = groundLayer.GetNode<Marker2D>("ZombieSpawnW");
+		var exclusion = new Rect2(
+			new Vector2(markerW.Position.X, markerN.Position.Y),
+			new Vector2(markerE.Position.X - markerW.Position.X, markerS.Position.Y - markerN.Position.Y)
+		);
+
+		var area = groundLayer.GetNode<Area2D>("Area2D");
+		var colShape = area.GetNode<CollisionShape2D>("CollisionShape2D");
+		var rectShape = (RectangleShape2D)colShape.Shape;
+		Vector2 halfExtents = rectShape.Size * 0.5f * colShape.Scale * area.Scale;
+		Vector2 center = colShape.Position * area.Scale;
+		var outerRect = new Rect2(center - halfExtents, halfExtents * 2f);
+
+		for (int i = 0; i < 100; i++)
+		{
+			Vector2 point;
+			do
+			{
+				point = new Vector2(
+					_rng.RandfRange(outerRect.Position.X, outerRect.End.X),
+					_rng.RandfRange(outerRect.Position.Y, outerRect.End.Y)
+				);
+			} while (exclusion.HasPoint(point));
+
+			var zombie = _zombieScene.Instantiate<Zombie>();
+			zombie.Position = point * mapScale;
+			zombie.BuildingLayer = buildingLayer;
+			_worldRoot.AddChild(zombie);
+		}
 
 		_statsPanel.InitStats(SpacetimeNetworkManager.Instance.LocalIdentity);
 
@@ -269,10 +308,13 @@ public partial class Waste : Node2D
 
 	private void AlignSpawnToPlayfield()
 	{
-		var r = _worldRoot.GetViewport().GetVisibleRect();
-		_playerSpawnPosition.Position = new Vector2(r.Size.X * 0.5f, r.Size.Y * 0.82f);
-		if (_localPlayerNode is not null && IsInstanceValid(_localPlayerNode))
-			_localPlayerNode.Position = _playerSpawnPosition.Position;
+		var groundLayer = _worldRoot.GetNode<TileMapLayer>("PlayfieldMap/TileMapLayer");
+		Vector2 mapScale = groundLayer.GetParent<Node2D>().Scale;
+		Vector2 spawnWorld = groundLayer.MapToLocal(new Vector2I(20, 12)) * mapScale;
+
+		_playerSpawnPosition.Position = spawnWorld;
+		if (_localPlayerNode is not null && IsInstanceValid(_localPlayerNode) && !_localPlayerNode.IsInsideTree())
+			_localPlayerNode.Position = spawnWorld;
 	}
 
 	private void BuildLocationBar()
