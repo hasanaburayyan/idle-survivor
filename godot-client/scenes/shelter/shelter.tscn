@@ -96,6 +96,13 @@ disabled = true
 text = "Guild Hall"
 tooltip_text = "Coming soon"
 
+[node name="TravelWastesButton" type="Button" parent="CanvasLayerHud/OuterVBox/LocationBarMargin/LocationBarPanel/LocationBar/TravelButtonsContainer"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+text = "Wastes"
+
 [node name="MainRowMargin" type="MarginContainer" parent="CanvasLayerHud/OuterVBox" unique_id=1810782044]
 layout_mode = 2
 size_flags_vertical = 3
@@ -186,6 +193,7 @@ theme_override_constants/separation = 8
 
 [node name="SubViewportContainer" type="SubViewportContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/PlayfieldSplit" unique_id=430791582]
 layout_mode = 2
+mouse_filter = 1
 size_flags_horizontal = 3
 size_flags_vertical = 3
 size_flags_stretch_ratio = 0.72

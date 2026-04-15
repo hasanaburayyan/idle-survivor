@@ -28,13 +28,23 @@ public partial class Shelter : Node2D
 	private Dictionary<SpacetimeDB.Identity, Player> _guildMemberSprites = new();
 	private bool _inGuildHall;
 	private RandomNumberGenerator _rng = new();
+	private Color _currentZombieTint = Colors.White;
 
 	private Label _locationLabel;
 	private Button _travelShelterButton;
 	private Button _travelGuildHallButton;
+	private Button _travelWastesButton;
 
 	private PanelContainer _craftingPanel;
 	private VBoxContainer _craftingList;
+
+	private bool _placementMode;
+	private Node2D _placementGhost;
+	private ulong _pendingDefinitionId;
+	private string _pendingStructureName;
+
+	private Dictionary<ulong, Node2D> _placedStructureNodes = new();
+	private ulong? _openStructureDefId;
 
 	private Dictionary<ulong, Activity> _activityNodes = new();
 
@@ -50,6 +60,11 @@ public partial class Shelter : Node2D
 	private PanelContainer _modalSocial;
 	private PanelContainer _modalSkills;
 	private PanelContainer _modalSystem;
+
+	private Control _structureCraftPopup;
+	private PanelContainer _modalStructureCraft;
+	private Label _structureCraftTitle;
+	private VBoxContainer _structureCraftList;
 
 	private Button _btnCharacter;
 	private Button _btnInventory;
@@ -120,6 +135,10 @@ public partial class Shelter : Node2D
 		_btnSkills.Pressed += () => TogglePopup(3);
 		_btnSystem.Pressed += () => TogglePopup(4);
 
+		BuildStructureCraftPopup();
+
+		_btnSkills.Visible = false;
+
 		_levelLabel = GetNode<Label>("%LevelLabel");
 		_xpProgressBar = GetNode<ProgressBar>("%XpProgressBar");
 		_xpLabel = GetNode<Label>("%XpLabel");
@@ -146,6 +165,7 @@ public partial class Shelter : Node2D
 		_worldRoot.AddChild(_localPlayerNode);
 		_localPlayerNode.SetName(player.DisplayName);
 		_localPlayerNode.BindActivityDisplay(SpacetimeNetworkManager.Instance.LocalIdentity);
+		_localPlayerNode.AutoKillEnabled = HasSkillByName(conn, SpacetimeNetworkManager.Instance.LocalIdentity, "Auto Kill Zombie");
 		_localPlayerNode.KillRequested += OnPlayerKillRequested;
 
 		var groundLayer = _worldRoot.GetNode<Node2D>("PlayfieldMap/TileMapLayer");
@@ -209,6 +229,9 @@ public partial class Shelter : Node2D
 		conn.Db.PlayerStructure.OnInsert += OnPlayerStructureInsert;
 		conn.Db.KillLoot.OnInsert += OnKillLootInsert;
 
+		foreach (var ps in conn.Db.PlayerStructure.Owner.Filter(SpacetimeNetworkManager.Instance.LocalIdentity))
+			SpawnStructureNode(ps);
+
 		GetViewport().SizeChanged += OnViewportSizeChanged;
 		CallDeferred(nameof(FitCameraToPlayfield));
 
@@ -225,16 +248,48 @@ public partial class Shelter : Node2D
 
 	public override void _Process(double delta)
 	{
+		if (_placementMode && _placementGhost != null)
+		{
+			var mousePos = _subViewport.GetMousePosition();
+			var worldPos = _camera.Position + (mousePos - (Vector2)_subViewport.Size / 2f) / _camera.Zoom;
+			_placementGhost.Position = worldPos;
+		}
 	}
 
 	public override void _Input(InputEvent @event)
 	{
+		if (_placementMode)
+		{
+			if (@event is InputEventMouseButton mb && mb.Pressed)
+			{
+				if (mb.ButtonIndex == MouseButton.Left)
+				{
+					ConfirmPlacement();
+					GetViewport().SetInputAsHandled();
+					return;
+				}
+				if (mb.ButtonIndex == MouseButton.Right)
+				{
+					CancelPlacement();
+					GetViewport().SetInputAsHandled();
+					return;
+				}
+			}
+			if (@event.IsActionPressed("ui_cancel"))
+			{
+				CancelPlacement();
+				GetViewport().SetInputAsHandled();
+				return;
+			}
+			return;
+		}
+
 		if (_openPopupIndex is null) return;
-		if (@event is not InputEventMouseButton mb || !mb.Pressed) return;
+		if (@event is not InputEventMouseButton popupMb || !popupMb.Pressed) return;
 
 		var shell = GetOpenModalShell();
 		if (shell is null) return;
-		if (shell.GetGlobalRect().HasPoint(mb.GlobalPosition))
+		if (shell.GetGlobalRect().HasPoint(popupMb.GlobalPosition))
 			return;
 
 		CloseAllPopups();
@@ -248,6 +303,7 @@ public partial class Shelter : Node2D
 		2 => _modalSocial,
 		3 => _modalSkills,
 		4 => _modalSystem,
+		5 => _modalStructureCraft,
 		_ => null,
 	};
 
@@ -255,6 +311,12 @@ public partial class Shelter : Node2D
 	{
 		if (@event.IsActionPressed("ui_cancel"))
 		{
+			if (_placementMode)
+			{
+				CancelPlacement();
+				GetViewport().SetInputAsHandled();
+				return;
+			}
 			if (_openPopupIndex is not null)
 			{
 				CloseAllPopups();
@@ -298,6 +360,7 @@ public partial class Shelter : Node2D
 		_socialPopup.Visible = index == 2;
 		_skillsPopup.Visible = index == 3;
 		_systemPopup.Visible = index == 4;
+		_structureCraftPopup.Visible = index == 5;
 
 		switch (index)
 		{
@@ -309,6 +372,9 @@ public partial class Shelter : Node2D
 				break;
 			case 3:
 				RefreshSkillsPanel();
+				break;
+			case 5:
+				RefreshStructureCraftMenu();
 				break;
 		}
 	}
@@ -322,6 +388,8 @@ public partial class Shelter : Node2D
 		_socialPopup.Visible = false;
 		_skillsPopup.Visible = false;
 		_systemPopup.Visible = false;
+		_structureCraftPopup.Visible = false;
+		_openStructureDefId = null;
 	}
 
 	private void OnViewportSizeChanged()
@@ -372,11 +440,13 @@ public partial class Shelter : Node2D
 		_locationLabel = GetNode<Label>("%LocationLabel");
 		_travelShelterButton = GetNode<Button>("%TravelShelterButton");
 		_travelGuildHallButton = GetNode<Button>("%TravelGuildHallButton");
+		_travelWastesButton = GetNode<Button>("%TravelWastesButton");
 
 		_travelShelterButton.Pressed += () => SpacetimeNetworkManager.Instance.Conn.Reducers.Travel(LocationType.Shelter);
 		_travelGuildHallButton.Pressed += () => SpacetimeNetworkManager.Instance.Conn.Reducers.Travel(LocationType.GuildHall);
 		_travelGuildHallButton.Disabled = true;
 		_travelGuildHallButton.TooltipText = "Coming soon";
+		_travelWastesButton.Pressed += () => SpacetimeNetworkManager.Instance.Conn.Reducers.Travel(LocationType.Wastes);
 	}
 
 	private void BuildCraftingPanel()
@@ -390,6 +460,7 @@ public partial class Shelter : Node2D
 	{
 		LocationType.Shelter => "Shelter",
 		LocationType.GuildHall => "Guild Hall",
+		LocationType.Wastes => "The Wastes",
 		_ => loc.ToString()
 	};
 
@@ -397,6 +468,7 @@ public partial class Shelter : Node2D
 	{
 		LocationType.Shelter => new Color(0.42f, 0.30f, 0.22f),
 		LocationType.GuildHall => new Color(0.72f, 0.62f, 0.28f),
+		LocationType.Wastes => new Color(0.45f, 0.22f, 0.20f),
 		_ => new Color(0.35f, 0.35f, 0.38f),
 	};
 
@@ -597,10 +669,18 @@ public partial class Shelter : Node2D
 		_locationLabel.Text = $"Location: {LocationDisplayName(loc)}";
 		_playfieldBackground.SetColor(LocationPlayfieldColor(loc));
 
+		var playfield = _worldRoot.GetNode<Node2D>("PlayfieldMap");
+		bool isWastes = loc == LocationType.Wastes;
+		playfield.Modulate = isWastes ? new Color(1.0f, 0.7f, 0.7f) : Colors.White;
+
+		_currentZombieTint = isWastes ? new Color(1.0f, 0.6f, 0.6f) : Colors.White;
+		ApplyZombieTint(_currentZombieTint);
+
 		_travelShelterButton.Visible = loc != LocationType.Shelter;
 		_travelGuildHallButton.Visible = true;
+		_travelWastesButton.Visible = loc != LocationType.Wastes && HasSkillByName(conn, localId, "Unlock Wastes");
 
-		bool isShelterLoc = loc == LocationType.Shelter || loc == LocationType.GuildHall;
+		bool isShelterLoc = loc == LocationType.Shelter || loc == LocationType.GuildHall || loc == LocationType.Wastes;
 		_craftingPanel.Visible = isShelterLoc;
 		if (isShelterLoc)
 			RefreshCraftingMenu();
@@ -647,6 +727,9 @@ public partial class Shelter : Node2D
 			var alreadyBuilt = conn.Db.PlayerStructure.ByOwnerAndDefinition
 				.Filter((Owner: localId, DefinitionId: definition.Id)).Any();
 
+			var entry = new VBoxContainer();
+			entry.AddThemeConstantOverride("separation", 2);
+
 			var row = new HBoxContainer();
 			row.AddThemeConstantOverride("separation", 8);
 
@@ -674,11 +757,27 @@ public partial class Shelter : Node2D
 				buildBtn.Text = "Build";
 				buildBtn.CustomMinimumSize = new Vector2(80, 28);
 				var capturedId = definition.Id;
-				buildBtn.Pressed += () => conn.Reducers.BuildStructure(capturedId);
+				var capturedName = definition.Name;
+				buildBtn.Pressed += () => EnterPlacementMode(capturedId, capturedName);
 				row.AddChild(buildBtn);
 			}
 
-			_craftingList.AddChild(row);
+			entry.AddChild(row);
+
+			var recipeNames = conn.Db.CraftingRecipe.StructureDefinitionId
+				.Filter(definition.Id)
+				.Select(r => r.Name)
+				.ToList();
+			if (recipeNames.Count > 0)
+			{
+				var recipesLabel = new Label();
+				recipesLabel.Text = $"Recipes: {string.Join(", ", recipeNames)}";
+				recipesLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.7f, 0.9f));
+				recipesLabel.AddThemeFontSizeOverride("font_size", 14);
+				entry.AddChild(recipesLabel);
+			}
+
+			_craftingList.AddChild(entry);
 		}
 
 		if (_craftingList.GetChildCount() == 0)
@@ -689,6 +788,14 @@ public partial class Shelter : Node2D
 			empty.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
 			_craftingList.AddChild(empty);
 		}
+	}
+
+	private static bool HasSkillByName(DbConnection conn, SpacetimeDB.Identity owner, string skillName)
+	{
+		var def = conn.Db.SkillDefinition.Name.Find(skillName);
+		if (def is null) return false;
+		return conn.Db.PlayerSkill.BySkillOwnerDef
+			.Filter((Owner: owner, SkillDefinitionId: def.Id)).Any();
 	}
 
 	private static ulong XpForNextLevel(uint level) =>
@@ -709,6 +816,35 @@ public partial class Shelter : Node2D
 		_xpProgressBar.Value = needed > 0 ? (double)xp / needed * 100.0 : 0;
 		_xpLabel.Text = $"{xp} / {needed} XP";
 		_skillPointsLabel.Text = sp > 0 ? $"SP: {sp}" : "";
+
+		if (level >= 1 && !_btnSkills.Visible)
+		{
+			_btnSkills.Visible = true;
+			FlashButton(_btnSkills);
+		}
+	}
+
+	private void FlashButton(Button btn)
+	{
+		var tween = CreateTween();
+		tween.SetLoops(4);
+		tween.TweenProperty(btn, "modulate", new Color(1f, 0.85f, 0.2f, 1f), 0.25);
+		tween.TweenProperty(btn, "modulate", Colors.White, 0.25);
+	}
+
+	private static bool IsSkillExposed(DbConnection conn, SpacetimeDB.Identity owner, SpacetimeDB.Types.SkillDefinition skill)
+	{
+		bool hasAnyPrereq = skill.PrerequisiteSkillId is not null || skill.PrerequisiteSkillId2 is not null;
+		if (!hasAnyPrereq) return true;
+
+		if (skill.PrerequisiteSkillId is ulong p1
+			&& conn.Db.PlayerSkill.BySkillOwnerDef.Filter((Owner: owner, SkillDefinitionId: p1)).Any())
+			return true;
+		if (skill.PrerequisiteSkillId2 is ulong p2
+			&& conn.Db.PlayerSkill.BySkillOwnerDef.Filter((Owner: owner, SkillDefinitionId: p2)).Any())
+			return true;
+
+		return false;
 	}
 
 	private void RefreshSkillsPanel()
@@ -717,7 +853,6 @@ public partial class Shelter : Node2D
 		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
 		var pl = conn.Db.PlayerLevel.Owner.Find(localId);
 		uint availableSp = pl?.AvailableSkillPoints ?? 0;
-		uint playerLevel = pl?.Level ?? 0;
 
 		_skillsAvailableLabel.Text = $"Available Skill Points: {availableSp}";
 
@@ -726,16 +861,22 @@ public partial class Shelter : Node2D
 
 		foreach (var skill in conn.Db.SkillDefinition.Iter())
 		{
+			if (!IsSkillExposed(conn, localId, skill))
+				continue;
+
 			bool owned = conn.Db.PlayerSkill.BySkillOwnerDef
 				.Filter((Owner: localId, SkillDefinitionId: skill.Id)).Any();
 
-			bool meetsLevel = skill.RequiredLevel is not uint reqLvl || playerLevel >= reqLvl;
 			bool meetsPrereq = true;
-			if (skill.PrerequisiteSkillId is ulong prereqId)
+			if (skill.PrerequisiteSkillId is not null || skill.PrerequisiteSkillId2 is not null)
 			{
-				meetsPrereq = conn.Db.PlayerSkill.BySkillOwnerDef
-					.Filter((Owner: localId, SkillDefinitionId: prereqId)).Any();
+				bool has1 = skill.PrerequisiteSkillId is not ulong r1
+					|| conn.Db.PlayerSkill.BySkillOwnerDef.Filter((Owner: localId, SkillDefinitionId: r1)).Any();
+				bool has2 = skill.PrerequisiteSkillId2 is not ulong r2
+					|| conn.Db.PlayerSkill.BySkillOwnerDef.Filter((Owner: localId, SkillDefinitionId: r2)).Any();
+				meetsPrereq = has1 || has2;
 			}
+			bool meetsLevel = skill.RequiredLevel is not uint reqLvl || (pl?.Level ?? 0) >= reqLvl;
 			bool canAfford = availableSp >= skill.Cost;
 
 			var outer = new VBoxContainer();
@@ -785,15 +926,6 @@ public partial class Shelter : Node2D
 			descLabel.AddThemeFontSizeOverride("font_size", 14);
 			outer.AddChild(descLabel);
 
-			if (skill.RequiredLevel is uint reqLevel && !meetsLevel)
-			{
-				var reqLabel = new Label();
-				reqLabel.Text = $"Requires Level {reqLevel}";
-				reqLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.4f, 0.4f));
-				reqLabel.AddThemeFontSizeOverride("font_size", 13);
-				outer.AddChild(reqLabel);
-			}
-
 			_skillsList.AddChild(outer);
 		}
 	}
@@ -819,6 +951,13 @@ public partial class Shelter : Node2D
 		RefreshXpBar();
 		RefreshActivityVisibility();
 		if (_openPopupIndex == 3) RefreshSkillsPanel();
+
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		if (_localPlayerNode != null)
+			_localPlayerNode.AutoKillEnabled = HasSkillByName(conn, row.Owner, "Auto Kill Zombie");
+
+		if (HasSkillByName(conn, row.Owner, "Unlock Wastes"))
+			RefreshLocationUI();
 	}
 
 	private void OnGuildSessionChanged(bool inSession)
@@ -937,8 +1076,11 @@ public partial class Shelter : Node2D
 
 	private void OnPlayerStructureInsert(EventContext ctx, SpacetimeDB.Types.PlayerStructure structure)
 	{
-		if (structure.Owner == SpacetimeNetworkManager.Instance.LocalIdentity)
-			RefreshCraftingMenu();
+		if (structure.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
+			return;
+
+		SpawnStructureNode(structure);
+		RefreshCraftingMenu();
 	}
 
 	private void OnResourceTrackerInsert(EventContext ctx, SpacetimeDB.Types.ResourceTracker tracker)
@@ -1001,8 +1143,16 @@ public partial class Shelter : Node2D
 		var zombie = _zombieScene.Instantiate<Zombie>();
 		zombie.Position = point * _mapScale;
 		zombie.BuildingLayer = _buildingLayer;
+		zombie.Modulate = _currentZombieTint;
 		zombie.Killed += () => OnZombieKilled(zombie.Position);
 		_worldRoot.AddChild(zombie);
+	}
+
+	private void ApplyZombieTint(Color tint)
+	{
+		foreach (var child in _worldRoot.GetChildren())
+			if (child is Zombie z)
+				z.Modulate = tint;
 	}
 
 	private void OnPlayerKillRequested()
@@ -1043,6 +1193,245 @@ public partial class Shelter : Node2D
 
 		SpawnFloatingLoot(pos, $"+{loot.Amount} {loot.Resource}");
 		SpacetimeNetworkManager.Instance.Conn.Reducers.AckKillLoot(loot.Id);
+	}
+
+	private static readonly Vector2 StructureSize = new(64, 64);
+
+	private void EnterPlacementMode(ulong definitionId, string structureName)
+	{
+		if (_placementMode) return;
+		CloseAllPopups();
+
+		_placementMode = true;
+		_pendingDefinitionId = definitionId;
+		_pendingStructureName = structureName;
+
+		var assetPath = $"res://assets/structures/{structureName.Replace(" ", "_").ToLower()}.png";
+		if (ResourceLoader.Exists(assetPath))
+		{
+			var sprite = new Sprite2D();
+			sprite.Texture = GD.Load<Texture2D>(assetPath);
+			sprite.Modulate = new Color(1f, 1f, 1f, 0.6f);
+			_placementGhost = sprite;
+		}
+		else
+		{
+			var rect = new ColorRect();
+			rect.Size = StructureSize;
+			rect.Position = -StructureSize / 2f;
+			rect.Color = new Color(0.2f, 0.4f, 0.9f, 0.6f);
+			var container = new Node2D();
+			container.AddChild(rect);
+			_placementGhost = container;
+		}
+
+		_placementGhost.ZIndex = 50;
+		_worldRoot.AddChild(_placementGhost);
+	}
+
+	private void ConfirmPlacement()
+	{
+		if (!_placementMode || _placementGhost == null) return;
+
+		var pos = _placementGhost.Position;
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		conn.Reducers.BuildStructure(_pendingDefinitionId, (int)pos.X, (int)pos.Y);
+
+		_placementGhost.QueueFree();
+		_placementGhost = null;
+		_placementMode = false;
+	}
+
+	private void CancelPlacement()
+	{
+		if (!_placementMode) return;
+
+		if (_placementGhost != null)
+		{
+			_placementGhost.QueueFree();
+			_placementGhost = null;
+		}
+		_placementMode = false;
+	}
+
+	private void SpawnStructureNode(SpacetimeDB.Types.PlayerStructure ps)
+	{
+		if (_placedStructureNodes.ContainsKey(ps.Id)) return;
+
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var def = conn.Db.StructureDefinition.Id.Find(ps.DefinitionId);
+		string structureName = def?.Name ?? "Unknown";
+
+		var area = new ClickableStructure();
+		area.Position = new Vector2(ps.PosX, ps.PosY);
+		area.ZIndex = 5;
+
+		var collision = new CollisionShape2D();
+		var shape = new RectangleShape2D();
+		shape.Size = StructureSize;
+		collision.Shape = shape;
+		area.AddChild(collision);
+
+		var assetPath = $"res://assets/structures/{structureName.Replace(" ", "_").ToLower()}.png";
+		if (ResourceLoader.Exists(assetPath))
+		{
+			var sprite = new Sprite2D();
+			sprite.Texture = GD.Load<Texture2D>(assetPath);
+			area.AddChild(sprite);
+		}
+		else
+		{
+			var rect = new ColorRect();
+			rect.Size = StructureSize;
+			rect.Position = -StructureSize / 2f;
+			rect.MouseFilter = Control.MouseFilterEnum.Ignore;
+			area.AddChild(rect);
+
+			var label = new Label();
+			label.Text = structureName;
+			label.HorizontalAlignment = HorizontalAlignment.Center;
+			label.Position = new Vector2(-StructureSize.X / 2f, -StructureSize.Y / 2f - 20);
+			label.Size = new Vector2(StructureSize.X, 20);
+			label.AddThemeFontSizeOverride("font_size", 12);
+			label.AddThemeColorOverride("font_color", Colors.White);
+			label.MouseFilter = Control.MouseFilterEnum.Ignore;
+			area.AddChild(label);
+		}
+
+		var capturedDefId = ps.DefinitionId;
+		area.StructureClicked += () =>
+		{
+			if (!_placementMode)
+				OpenStructureCraftMenu(capturedDefId);
+		};
+
+		_worldRoot.AddChild(area);
+		_placedStructureNodes[ps.Id] = area;
+	}
+
+	private void BuildStructureCraftPopup()
+	{
+		var popupLayer = GetNode<CanvasLayer>("CanvasLayerPopups");
+
+		_structureCraftPopup = new Control();
+		_structureCraftPopup.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		_structureCraftPopup.Visible = false;
+		popupLayer.AddChild(_structureCraftPopup);
+
+		var center = new CenterContainer();
+		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		_structureCraftPopup.AddChild(center);
+
+		var panel = new PanelContainer();
+		panel.CustomMinimumSize = new Vector2(500, 400);
+		var panelStyle = new StyleBoxFlat();
+		panelStyle.BgColor = new Color(0.12f, 0.12f, 0.15f, 0.95f);
+		panelStyle.CornerRadiusTopLeft = 8;
+		panelStyle.CornerRadiusTopRight = 8;
+		panelStyle.CornerRadiusBottomLeft = 8;
+		panelStyle.CornerRadiusBottomRight = 8;
+		panelStyle.ContentMarginLeft = 16;
+		panelStyle.ContentMarginRight = 16;
+		panelStyle.ContentMarginTop = 16;
+		panelStyle.ContentMarginBottom = 16;
+		panel.AddThemeStyleboxOverride("panel", panelStyle);
+		center.AddChild(panel);
+		_modalStructureCraft = panel;
+
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 12);
+		panel.AddChild(vbox);
+
+		var header = new HBoxContainer();
+		_structureCraftTitle = new Label();
+		_structureCraftTitle.Text = "Crafting Station";
+		_structureCraftTitle.AddThemeFontSizeOverride("font_size", 22);
+		_structureCraftTitle.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		header.AddChild(_structureCraftTitle);
+
+		var closeBtn = new Button();
+		closeBtn.Text = "X";
+		closeBtn.CustomMinimumSize = new Vector2(32, 32);
+		closeBtn.Pressed += CloseAllPopups;
+		header.AddChild(closeBtn);
+		vbox.AddChild(header);
+
+		var sep = new HSeparator();
+		vbox.AddChild(sep);
+
+		var scroll = new ScrollContainer();
+		scroll.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		vbox.AddChild(scroll);
+
+		_structureCraftList = new VBoxContainer();
+		_structureCraftList.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+		_structureCraftList.AddThemeConstantOverride("separation", 8);
+		scroll.AddChild(_structureCraftList);
+	}
+
+	private void OpenStructureCraftMenu(ulong structureDefinitionId)
+	{
+		_openStructureDefId = structureDefinitionId;
+		OpenPopup(5);
+	}
+
+	private void RefreshStructureCraftMenu()
+	{
+		foreach (var child in _structureCraftList.GetChildren())
+			child.QueueFree();
+
+		if (_openStructureDefId is not ulong defId) return;
+
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		var def = conn.Db.StructureDefinition.Id.Find(defId);
+		_structureCraftTitle.Text = def != null ? $"{def.Name} — Recipes" : "Crafting Station";
+
+		foreach (var recipe in conn.Db.CraftingRecipe.StructureDefinitionId.Filter(defId))
+		{
+			var row = new VBoxContainer();
+			row.AddThemeConstantOverride("separation", 4);
+
+			var topRow = new HBoxContainer();
+			topRow.AddThemeConstantOverride("separation", 8);
+
+			var nameLabel = new Label();
+			nameLabel.Text = recipe.Name;
+			nameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
+			nameLabel.AddThemeFontSizeOverride("font_size", 18);
+			topRow.AddChild(nameLabel);
+
+			var craftBtn = new Button();
+			craftBtn.Text = "Craft";
+			craftBtn.CustomMinimumSize = new Vector2(80, 28);
+			var capturedRecipeId = recipe.Id;
+			craftBtn.Pressed += () =>
+			{
+				conn.Reducers.CraftRecipe(capturedRecipeId);
+			};
+			topRow.AddChild(craftBtn);
+			row.AddChild(topRow);
+
+			var costParts = recipe.InputCost.Select(c => $"{c.Amount} {c.Type}");
+			var detailLabel = new Label();
+			detailLabel.Text = $"Cost: {string.Join(", ", costParts)}  →  {recipe.OutputAmount} {recipe.OutputResource}";
+			detailLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
+			detailLabel.AddThemeFontSizeOverride("font_size", 14);
+			row.AddChild(detailLabel);
+
+			var rowSep = new HSeparator();
+			row.AddChild(rowSep);
+
+			_structureCraftList.AddChild(row);
+		}
+
+		if (_structureCraftList.GetChildCount() == 0)
+		{
+			var empty = new Label();
+			empty.Text = "No recipes available";
+			empty.HorizontalAlignment = HorizontalAlignment.Center;
+			empty.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
+			_structureCraftList.AddChild(empty);
+		}
 	}
 
 	private void SpawnFloatingLoot(Vector2 worldPos, string text)

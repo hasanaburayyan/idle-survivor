@@ -25,6 +25,7 @@ public static partial class Module
         public uint Cost;
         public uint? RequiredLevel;
         public ulong? PrerequisiteSkillId;
+        public ulong? PrerequisiteSkillId2;
     }
 
     [SpacetimeDB.Table(Accessor = "PlayerSkill", Public = true)]
@@ -108,10 +109,13 @@ public static partial class Module
         if (skill.RequiredLevel is uint reqLevel && plRow.Level < reqLevel)
             throw new Exception($"Requires level {reqLevel}");
 
-        if (skill.PrerequisiteSkillId is ulong prereqId)
+        if (skill.PrerequisiteSkillId is not null || skill.PrerequisiteSkillId2 is not null)
         {
-            if (!ctx.Db.PlayerSkill.by_skill_owner_def
-                .Filter((Owner: ctx.Sender, SkillDefinitionId: prereqId)).Any())
+            bool hasPrereq1 = skill.PrerequisiteSkillId is not ulong p1
+                || ctx.Db.PlayerSkill.by_skill_owner_def.Filter((Owner: ctx.Sender, SkillDefinitionId: p1)).Any();
+            bool hasPrereq2 = skill.PrerequisiteSkillId2 is not ulong p2
+                || ctx.Db.PlayerSkill.by_skill_owner_def.Filter((Owner: ctx.Sender, SkillDefinitionId: p2)).Any();
+            if (!hasPrereq1 && !hasPrereq2)
                 throw new Exception("Missing prerequisite skill");
         }
 

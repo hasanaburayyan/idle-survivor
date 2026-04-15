@@ -11,7 +11,8 @@ public partial class Activity : VBoxContainer
 	private static bool IsLocationValid(LocationType? required, LocationType playerLoc) =>
 		required is null ||
 		required == playerLoc ||
-		(required == LocationType.Shelter && playerLoc == LocationType.GuildHall);
+		(required == LocationType.Shelter &&
+			(playerLoc == LocationType.GuildHall || playerLoc == LocationType.Wastes));
 
 	private Button ActivateButton;
 	private Label CostLabel;
@@ -440,7 +441,7 @@ public partial class Activity : VBoxContainer
 		int slots = 0;
 		foreach (var skillDef in conn.Db.SkillDefinition.Iter())
 		{
-			if (!skillDef.Name.StartsWith("Auto-")) continue;
+			if (!skillDef.Name.StartsWith("Automate Activity")) continue;
 			if (conn.Db.PlayerSkill.BySkillOwnerDef
 				.Filter((Owner: owner, SkillDefinitionId: skillDef.Id)).Any())
 				slots++;

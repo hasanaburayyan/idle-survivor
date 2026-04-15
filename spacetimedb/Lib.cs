@@ -60,17 +60,24 @@ public static partial class Module
         }
     }
 
-    /// <summary>Upsert ChopWood and Mine activities — inserts missing rows and corrects stale ones
-    /// left over from the enum redesign (old LootBigWood=1 / CarbLoad=2 reused byte values).</summary>
+    public static ulong? FindSkillIdByName(ReducerContext ctx, string name)
+    {
+        var skill = ctx.Db.SkillDefinition.Name.Find(name);
+        return skill?.Id;
+    }
+
     public static void EnsureNewActivities(ReducerContext ctx, Identity participant)
     {
-        UpsertActivity(ctx, participant, ActivityType.ChopWood, durationMs: 3000, requiredLevel: 3);
-        UpsertActivity(ctx, participant, ActivityType.Mine, durationMs: 3000, requiredLevel: 5);
+        var woodSkillId = FindSkillIdByName(ctx, "Unlock Wood Gathering");
+        var metalSkillId = FindSkillIdByName(ctx, "Unlock Metal Gathering");
+
+        UpsertActivity(ctx, participant, ActivityType.ChopWood, durationMs: 3000, requiredSkillId: woodSkillId);
+        UpsertActivity(ctx, participant, ActivityType.Mine, durationMs: 3000, requiredSkillId: metalSkillId);
     }
 
     private static void UpsertActivity(
         ReducerContext ctx, Identity participant,
-        ActivityType type, ulong durationMs, uint requiredLevel)
+        ActivityType type, ulong durationMs, ulong? requiredSkillId)
     {
         var existing = ctx.Db.Activity.by_activity_participant_type
             .Filter((Participant: participant, Type: type)).FirstOrDefault();
@@ -84,20 +91,21 @@ public static partial class Module
                 Cost = [],
                 DurationMs = durationMs,
                 RequiredLocation = LocationType.Shelter,
-                RequiredLevel = requiredLevel,
+                RequiredLevel = null,
                 RequiredStructure = null,
-                RequiredSkillId = null,
+                RequiredSkillId = requiredSkillId,
                 Level = 1
             });
             return;
         }
 
-        if (existing.DurationMs != durationMs || existing.RequiredLevel != requiredLevel)
+        if (existing.DurationMs != durationMs || existing.RequiredSkillId != requiredSkillId || existing.RequiredLevel != null)
         {
             ctx.Db.Activity.Id.Update(existing with
             {
                 DurationMs = durationMs,
-                RequiredLevel = requiredLevel
+                RequiredLevel = null,
+                RequiredSkillId = requiredSkillId
             });
         }
     }

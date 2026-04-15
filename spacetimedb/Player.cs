@@ -75,27 +75,29 @@ public static partial class Module {
             Level = 1
         });
 
+        var woodSkillId = FindSkillIdByName(ctx, "Unlock Wood Gathering");
         ctx.Db.Activity.Insert(new Activity{
             Participant = ctx.Sender,
             Type = ActivityType.ChopWood,
             Cost = [],
             DurationMs = 3000,
             RequiredLocation = LocationType.Shelter,
-            RequiredLevel = 3,
+            RequiredLevel = null,
             RequiredStructure = null,
-            RequiredSkillId = null,
+            RequiredSkillId = woodSkillId,
             Level = 1
         });
 
+        var metalSkillId = FindSkillIdByName(ctx, "Unlock Metal Gathering");
         ctx.Db.Activity.Insert(new Activity{
             Participant = ctx.Sender,
             Type = ActivityType.Mine,
             Cost = [],
             DurationMs = 3000,
             RequiredLocation = LocationType.Shelter,
-            RequiredLevel = 5,
+            RequiredLevel = null,
             RequiredStructure = null,
-            RequiredSkillId = null,
+            RequiredSkillId = metalSkillId,
             Level = 1
         });
     }

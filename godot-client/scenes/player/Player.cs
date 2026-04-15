@@ -32,6 +32,7 @@ public partial class Player : CharacterBody2D
 	public delegate void KillRequestedEventHandler();
 
 	public bool IsLocal { get; set; }
+	public bool AutoKillEnabled { get; set; }
 	public float KillIntervalSeconds { get; set; } = 2.0f;
 
 	public Label DisplayNameLabel;
@@ -190,7 +191,7 @@ public partial class Player : CharacterBody2D
 
 		_stateTimer -= (float)delta;
 
-		if (IsLocal)
+		if (IsLocal && AutoKillEnabled)
 		{
 			_attackTimer -= (float)delta;
 			if (_attackTimer <= 0f)
