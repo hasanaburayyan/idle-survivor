@@ -328,6 +328,12 @@ custom_minimum_size = Vector2(120, 36)
 layout_mode = 2
 text = "Crafting"
 
+[node name="GearInventoryMenuButton" type="Button" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel/BottomMenuBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 36)
+layout_mode = 2
+text = "Inventory"
+
 [node name="SocialMenuButton" type="Button" parent="CanvasLayerHud/OuterVBox/BottomBarMargin/BottomBarPanel/BottomMenuBar" unique_id=1720167263]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(120, 36)

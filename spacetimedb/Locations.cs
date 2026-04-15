@@ -66,6 +66,7 @@ public static partial class Module
         public ResourceType OutputResource;
         public ulong OutputAmount;
         public ulong DurationMs;
+        public bool IsGearRecipe;
     }
 
     [SpacetimeDB.Table(Accessor = "StructureModifier", Public = true)]
@@ -308,6 +309,260 @@ public static partial class Module
             PrerequisiteSkillId = autoActivity.Id,
             PrerequisiteSkillId2 = null
         });
+
+        Log.Info("Seeding storage chest structure");
+
+        ctx.Db.StructureDefinition.Insert(new StructureDefinition
+        {
+            Id = 0,
+            Name = "Storage Chest",
+            Cost = new List<ActivityCost>
+            {
+                new ActivityCost { Type = ResourceType.Wood, Amount = 30 },
+                new ActivityCost { Type = ResourceType.Metal, Amount = 10 }
+            }
+        });
+
+        Log.Info("Seeding gear recipes and definitions");
+
+        var hoodRecipe = ctx.Db.CraftingRecipe.Insert(new CraftingRecipe
+        {
+            Id = 0,
+            StructureDefinitionId = tailorStation.Id,
+            Name = "Craft Survivor's Hood",
+            InputCost = new List<ActivityCost>
+            {
+                new ActivityCost { Type = ResourceType.Fabric, Amount = 20 },
+                new ActivityCost { Type = ResourceType.Parts, Amount = 5 }
+            },
+            OutputResource = ResourceType.Food,
+            OutputAmount = 0,
+            DurationMs = 5000,
+            IsGearRecipe = true
+        });
+
+        ctx.Db.GearDefinition.Insert(new GearDefinition
+        {
+            Id = 0,
+            Name = "Survivor's Hood",
+            Slot = GearSlot.Head,
+            StatBonuses = new List<GearStatBonus>
+            {
+                new GearStatBonus { Stat = StatType.Perception, Value = 2 }
+            },
+            HealthBonus = 5,
+            SetName = "Survivor's Set",
+            CraftingRecipeId = hoodRecipe.Id
+        });
+
+        var vestRecipe = ctx.Db.CraftingRecipe.Insert(new CraftingRecipe
+        {
+            Id = 0,
+            StructureDefinitionId = tailorStation.Id,
+            Name = "Craft Survivor's Vest",
+            InputCost = new List<ActivityCost>
+            {
+                new ActivityCost { Type = ResourceType.Fabric, Amount = 30 },
+                new ActivityCost { Type = ResourceType.Parts, Amount = 10 }
+            },
+            OutputResource = ResourceType.Food,
+            OutputAmount = 0,
+            DurationMs = 8000,
+            IsGearRecipe = true
+        });
+
+        ctx.Db.GearDefinition.Insert(new GearDefinition
+        {
+            Id = 0,
+            Name = "Survivor's Vest",
+            Slot = GearSlot.Chest,
+            StatBonuses = new List<GearStatBonus>
+            {
+                new GearStatBonus { Stat = StatType.Endurance, Value = 3 }
+            },
+            HealthBonus = 15,
+            SetName = "Survivor's Set",
+            CraftingRecipeId = vestRecipe.Id
+        });
+
+        var glovesRecipe = ctx.Db.CraftingRecipe.Insert(new CraftingRecipe
+        {
+            Id = 0,
+            StructureDefinitionId = workbench.Id,
+            Name = "Craft Survivor's Gloves",
+            InputCost = new List<ActivityCost>
+            {
+                new ActivityCost { Type = ResourceType.Fabric, Amount = 10 },
+                new ActivityCost { Type = ResourceType.Metal, Amount = 8 }
+            },
+            OutputResource = ResourceType.Food,
+            OutputAmount = 0,
+            DurationMs = 4000,
+            IsGearRecipe = true
+        });
+
+        ctx.Db.GearDefinition.Insert(new GearDefinition
+        {
+            Id = 0,
+            Name = "Survivor's Gloves",
+            Slot = GearSlot.Arms,
+            StatBonuses = new List<GearStatBonus>
+            {
+                new GearStatBonus { Stat = StatType.Dexterity, Value = 2 }
+            },
+            HealthBonus = 3,
+            SetName = "Survivor's Set",
+            CraftingRecipeId = glovesRecipe.Id
+        });
+
+        var pantsRecipe = ctx.Db.CraftingRecipe.Insert(new CraftingRecipe
+        {
+            Id = 0,
+            StructureDefinitionId = tailorStation.Id,
+            Name = "Craft Survivor's Pants",
+            InputCost = new List<ActivityCost>
+            {
+                new ActivityCost { Type = ResourceType.Fabric, Amount = 25 },
+                new ActivityCost { Type = ResourceType.Parts, Amount = 8 }
+            },
+            OutputResource = ResourceType.Food,
+            OutputAmount = 0,
+            DurationMs = 6000,
+            IsGearRecipe = true
+        });
+
+        ctx.Db.GearDefinition.Insert(new GearDefinition
+        {
+            Id = 0,
+            Name = "Survivor's Pants",
+            Slot = GearSlot.Legs,
+            StatBonuses = new List<GearStatBonus>
+            {
+                new GearStatBonus { Stat = StatType.Endurance, Value = 2 }
+            },
+            HealthBonus = 10,
+            SetName = "Survivor's Set",
+            CraftingRecipeId = pantsRecipe.Id
+        });
+
+        var bootsRecipe = ctx.Db.CraftingRecipe.Insert(new CraftingRecipe
+        {
+            Id = 0,
+            StructureDefinitionId = workbench.Id,
+            Name = "Craft Survivor's Boots",
+            InputCost = new List<ActivityCost>
+            {
+                new ActivityCost { Type = ResourceType.Fabric, Amount = 15 },
+                new ActivityCost { Type = ResourceType.Metal, Amount = 10 }
+            },
+            OutputResource = ResourceType.Food,
+            OutputAmount = 0,
+            DurationMs = 5000,
+            IsGearRecipe = true
+        });
+
+        ctx.Db.GearDefinition.Insert(new GearDefinition
+        {
+            Id = 0,
+            Name = "Survivor's Boots",
+            Slot = GearSlot.Feet,
+            StatBonuses = new List<GearStatBonus>
+            {
+                new GearStatBonus { Stat = StatType.Dexterity, Value = 1 },
+                new GearStatBonus { Stat = StatType.Endurance, Value = 1 }
+            },
+            HealthBonus = 5,
+            SetName = "Survivor's Set",
+            CraftingRecipeId = bootsRecipe.Id
+        });
+
+        var swordRecipe = ctx.Db.CraftingRecipe.Insert(new CraftingRecipe
+        {
+            Id = 0,
+            StructureDefinitionId = weaponStation.Id,
+            Name = "Craft Iron Sword",
+            InputCost = new List<ActivityCost>
+            {
+                new ActivityCost { Type = ResourceType.Metal, Amount = 20 },
+                new ActivityCost { Type = ResourceType.Parts, Amount = 5 }
+            },
+            OutputResource = ResourceType.Food,
+            OutputAmount = 0,
+            DurationMs = 6000,
+            IsGearRecipe = true
+        });
+
+        ctx.Db.GearDefinition.Insert(new GearDefinition
+        {
+            Id = 0,
+            Name = "Iron Sword",
+            Slot = GearSlot.Weapon,
+            StatBonuses = new List<GearStatBonus>
+            {
+                new GearStatBonus { Stat = StatType.Strength, Value = 3 }
+            },
+            HealthBonus = 0,
+            SetName = null,
+            CraftingRecipeId = swordRecipe.Id
+        });
+
+        var scoutBladeRecipe = ctx.Db.CraftingRecipe.Insert(new CraftingRecipe
+        {
+            Id = 0,
+            StructureDefinitionId = weaponStation.Id,
+            Name = "Craft Scout's Blade",
+            InputCost = new List<ActivityCost>
+            {
+                new ActivityCost { Type = ResourceType.Metal, Amount = 15 },
+                new ActivityCost { Type = ResourceType.Parts, Amount = 10 }
+            },
+            OutputResource = ResourceType.Food,
+            OutputAmount = 0,
+            DurationMs = 5000,
+            IsGearRecipe = true
+        });
+
+        ctx.Db.GearDefinition.Insert(new GearDefinition
+        {
+            Id = 0,
+            Name = "Scout's Blade",
+            Slot = GearSlot.Weapon,
+            StatBonuses = new List<GearStatBonus>
+            {
+                new GearStatBonus { Stat = StatType.Dexterity, Value = 2 },
+                new GearStatBonus { Stat = StatType.Perception, Value = 1 }
+            },
+            HealthBonus = 0,
+            SetName = null,
+            CraftingRecipeId = scoutBladeRecipe.Id
+        });
+
+        Log.Info("Seeding gear set bonuses");
+
+        ctx.Db.GearSetBonus.Insert(new GearSetBonus
+        {
+            Id = 0,
+            SetName = "Survivor's Set",
+            PiecesRequired = 3,
+            StatBonuses = new List<GearStatBonus>
+            {
+                new GearStatBonus { Stat = StatType.Endurance, Value = 3 }
+            },
+            HealthBonus = 10
+        });
+
+        ctx.Db.GearSetBonus.Insert(new GearSetBonus
+        {
+            Id = 0,
+            SetName = "Survivor's Set",
+            PiecesRequired = 5,
+            StatBonuses = new List<GearStatBonus>
+            {
+                new GearStatBonus { Stat = StatType.Endurance, Value = 5 },
+                new GearStatBonus { Stat = StatType.Strength, Value = 2 }
+            },
+            HealthBonus = 25
+        });
     }
 
     [SpacetimeDB.Reducer]
@@ -387,6 +642,16 @@ public static partial class Module
             PosX = posX,
             PosY = posY
         });
+
+        if (definition.Name == "Storage Chest")
+        {
+            ctx.Db.StorageChest.Insert(new StorageChest
+            {
+                Id = 0,
+                Owner = ctx.Sender,
+                Capacity = MaxInventorySlots
+            });
+        }
     }
 
     [SpacetimeDB.Reducer]
@@ -397,6 +662,9 @@ public static partial class Module
 
         if (ctx.Db.CraftingRecipe.Id.Find(recipeId) is not CraftingRecipe recipe)
             throw new Exception("Recipe not found");
+
+        if (recipe.IsGearRecipe)
+            throw new Exception("Use CraftGear for gear recipes");
 
         bool ownsStation = ctx.Db.PlayerStructure.by_owner_and_definition
             .Filter((Owner: ctx.Sender, DefinitionId: recipe.StructureDefinitionId)).Any();
