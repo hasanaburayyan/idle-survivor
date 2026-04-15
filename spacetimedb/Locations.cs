@@ -21,6 +21,8 @@ public static partial class Module
         public string Name;
 
         public List<ActivityCost> Cost;
+
+        public bool IndoorOnly;
     }
 
     [SpacetimeDB.Table(Accessor = "PlayerShelter", Public = true)]
@@ -102,7 +104,8 @@ public static partial class Module
             {
                 new ActivityCost { Type = ResourceType.Metal, Amount = 50 },
                 new ActivityCost { Type = ResourceType.Parts, Amount = 30 }
-            }
+            },
+            IndoorOnly = true
         });
 
         var workbench = ctx.Db.StructureDefinition.Insert(new StructureDefinition
@@ -113,7 +116,8 @@ public static partial class Module
             {
                 new ActivityCost { Type = ResourceType.Wood, Amount = 20 },
                 new ActivityCost { Type = ResourceType.Parts, Amount = 10 }
-            }
+            },
+            IndoorOnly = true
         });
 
         var tailorStation = ctx.Db.StructureDefinition.Insert(new StructureDefinition
@@ -124,7 +128,8 @@ public static partial class Module
             {
                 new ActivityCost { Type = ResourceType.Fabric, Amount = 30 },
                 new ActivityCost { Type = ResourceType.Wood, Amount = 15 }
-            }
+            },
+            IndoorOnly = true
         });
 
         var weaponStation = ctx.Db.StructureDefinition.Insert(new StructureDefinition
@@ -135,7 +140,8 @@ public static partial class Module
             {
                 new ActivityCost { Type = ResourceType.Metal, Amount = 40 },
                 new ActivityCost { Type = ResourceType.Parts, Amount = 20 }
-            }
+            },
+            IndoorOnly = true
         });
 
         Log.Info("Seeding crafting recipes");
@@ -320,7 +326,8 @@ public static partial class Module
             {
                 new ActivityCost { Type = ResourceType.Wood, Amount = 30 },
                 new ActivityCost { Type = ResourceType.Metal, Amount = 10 }
-            }
+            },
+            IndoorOnly = true
         });
 
         Log.Info("Seeding gear recipes and definitions");

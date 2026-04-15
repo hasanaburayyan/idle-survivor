@@ -18,6 +18,7 @@ public partial class Shelter : Node2D
 	private VBoxContainer _activitiesPanel;
 	private Player _localPlayerNode;
 	private GuildSocialPanel _guildSocialPanel;
+	private FriendsSocialPanel _friendsSocialPanel;
 	private CharacterProfilePanel _characterProfilePanel;
 
 	private PackedScene _playerScene = GD.Load<PackedScene>("uid://cl6yviutw6arx");
@@ -42,6 +43,8 @@ public partial class Shelter : Node2D
 	private Node2D _placementGhost;
 	private ulong _pendingDefinitionId;
 	private string _pendingStructureName;
+	private bool _pendingIndoorOnly;
+	private bool _placementValid = true;
 
 	private Dictionary<ulong, Node2D> _placedStructureNodes = new();
 	private ulong? _openStructureDefId;
@@ -116,6 +119,7 @@ public partial class Shelter : Node2D
 		_statsPanel = GetNode<PlayerStatsPanel>("%PlayerStatsPanel");
 		_activitiesPanel = GetNode<VBoxContainer>("%Activities");
 		_guildSocialPanel = GetNode<GuildSocialPanel>("%GuildSocialPanel");
+		_friendsSocialPanel = GetNode<FriendsSocialPanel>("%FriendsSocialPanel");
 		_characterProfilePanel = GetNode<CharacterProfilePanel>("%CharacterProfilePanel");
 
 		_popupBackdrop = GetNode<ColorRect>("%PopupBackdrop");
@@ -271,6 +275,21 @@ public partial class Shelter : Node2D
 			var mousePos = _subViewport.GetMousePosition();
 			var worldPos = _camera.Position + (mousePos - (Vector2)_subViewport.Size / 2f) / _camera.Zoom;
 			_placementGhost.Position = worldPos;
+
+			if (_pendingIndoorOnly)
+			{
+				var localPos = worldPos / _mapScale;
+				var tileCoord = _buildingLayer.LocalToMap(localPos);
+				bool onBuilding = _buildingLayer.GetCellSourceId(tileCoord) != -1;
+				_placementValid = onBuilding;
+				_placementGhost.Modulate = onBuilding
+					? new Color(1f, 1f, 1f, 0.6f)
+					: new Color(1f, 0.2f, 0.2f, 0.6f);
+			}
+			else
+			{
+				_placementValid = true;
+			}
 		}
 	}
 
@@ -391,6 +410,7 @@ public partial class Shelter : Node2D
 				RefreshGearInventory();
 				break;
 			case 3:
+				_friendsSocialPanel.RefreshOnOpen();
 				_guildSocialPanel.RefreshOnOpen();
 				break;
 			case 4:
@@ -782,7 +802,8 @@ public partial class Shelter : Node2D
 				buildBtn.CustomMinimumSize = new Vector2(80, 28);
 				var capturedId = definition.Id;
 				var capturedName = definition.Name;
-				buildBtn.Pressed += () => EnterPlacementMode(capturedId, capturedName);
+				var capturedIndoor = definition.IndoorOnly;
+				buildBtn.Pressed += () => EnterPlacementMode(capturedId, capturedName, capturedIndoor);
 				row.AddChild(buildBtn);
 			}
 
@@ -1221,7 +1242,7 @@ public partial class Shelter : Node2D
 
 	private static readonly Vector2 StructureSize = new(64, 64);
 
-	private void EnterPlacementMode(ulong definitionId, string structureName)
+	private void EnterPlacementMode(ulong definitionId, string structureName, bool indoorOnly)
 	{
 		if (_placementMode) return;
 		CloseAllPopups();
@@ -1229,6 +1250,8 @@ public partial class Shelter : Node2D
 		_placementMode = true;
 		_pendingDefinitionId = definitionId;
 		_pendingStructureName = structureName;
+		_pendingIndoorOnly = indoorOnly;
+		_placementValid = !indoorOnly;
 
 		var assetPath = $"res://assets/structures/{structureName.Replace(" ", "_").ToLower()}.png";
 		if (ResourceLoader.Exists(assetPath))
@@ -1256,6 +1279,7 @@ public partial class Shelter : Node2D
 	private void ConfirmPlacement()
 	{
 		if (!_placementMode || _placementGhost == null) return;
+		if (!_placementValid) return;
 
 		var pos = _placementGhost.Position;
 		var conn = SpacetimeNetworkManager.Instance.Conn;

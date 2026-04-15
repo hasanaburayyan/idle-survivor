@@ -7,6 +7,8 @@
 [ext_resource type="PackedScene" path="res://scenes/shelter/playfield_map.tscn" id="7_pfmap"]
 [ext_resource type="Script" uid="uid://la7tp3fccedg" path="res://scenes/shelter/CharacterProfilePanel.cs" id="5_profile"]
 [ext_resource type="Script" uid="uid://bn807yekrxs74" path="res://scenes/menu/GuildSocialPanel.cs" id="6_guild"]
+[ext_resource type="Script" path="res://scenes/shelter/PartyPanel.cs" id="7_party"]
+[ext_resource type="Script" path="res://scenes/menu/FriendsSocialPanel.cs" id="8_friends"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_locationbar"]
 content_margin_left = 16.0
@@ -159,6 +161,11 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 4
+
+[node name="PartyPanel" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+script = ExtResource("7_party")
 
 [node name="ChatPanel" type="PanelContainer" parent="CanvasLayerHud/OuterVBox/MainRowMargin/MainRow/ChatColumn" unique_id=558992624]
 layout_mode = 2
@@ -535,11 +542,11 @@ theme_override_font_sizes/font_size = 18
 text = "Friends"
 horizontal_alignment = 1
 
-[node name="FriendsPlaceholder" type="Label" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll/SocialVBox" unique_id=1568439640]
+[node name="FriendsSocialPanel" type="VBoxContainer" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll/SocialVBox"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
-text = "Friends list coming soon."
-horizontal_alignment = 1
+size_flags_horizontal = 3
+script = ExtResource("8_friends")
 
 [node name="FriendsSep" type="HSeparator" parent="CanvasLayerPopups/SocialPopup/CenterSocial/SocialPanel/SocialScroll/SocialVBox" unique_id=435990327]
 layout_mode = 2
