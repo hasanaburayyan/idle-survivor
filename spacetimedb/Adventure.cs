@@ -18,6 +18,8 @@ public static partial class Module
     private const float PLAYER_ATTACK_RANGE = 150f;
     private const int TICK_MS = 200;
     private const int BETWEEN_WAVES_MS = 3000;
+    private const float ZOMBIE_SEPARATION_RADIUS = 30f;
+    private const float ZOMBIE_SEPARATION_FORCE = 15f;
 
     // ── Tables ──────────────────────────────────────────────────────
 
@@ -451,6 +453,37 @@ public static partial class Module
         {
             EndAdventure(ctx, adventure.Id, AdventureState.Failed);
             return;
+        }
+
+        var zombiePositions = new List<(ulong Id, float X, float Y)>();
+        foreach (var z in ctx.Db.AdventureZombie.AdventureId.Filter(adventure.Id))
+            if (z.Alive) zombiePositions.Add((z.Id, z.PosX, z.PosY));
+
+        for (int i = 0; i < zombiePositions.Count; i++)
+        {
+            float pushX = 0, pushY = 0;
+            var a = zombiePositions[i];
+            for (int j = 0; j < zombiePositions.Count; j++)
+            {
+                if (i == j) continue;
+                var b = zombiePositions[j];
+                float dx = a.X - b.X, dy = a.Y - b.Y;
+                float dSq = dx * dx + dy * dy;
+                if (dSq < ZOMBIE_SEPARATION_RADIUS * ZOMBIE_SEPARATION_RADIUS && dSq > 0.01f)
+                {
+                    float d = MathF.Sqrt(dSq);
+                    float overlap = ZOMBIE_SEPARATION_RADIUS - d;
+                    pushX += (dx / d) * overlap * 0.5f;
+                    pushY += (dy / d) * overlap * 0.5f;
+                }
+            }
+            if (pushX != 0 || pushY != 0)
+            {
+                float nx = Math.Clamp(a.X + pushX, 0f, adventure.ArenaWidth);
+                float ny = Math.Clamp(a.Y + pushY, 0f, adventure.ArenaHeight);
+                if (ctx.Db.AdventureZombie.Id.Find(a.Id) is AdventureZombie z)
+                    ctx.Db.AdventureZombie.Id.Update(z with { PosX = nx, PosY = ny });
+            }
         }
 
         var freshAdventure = ctx.Db.Adventure.Id.Find(adventure.Id);

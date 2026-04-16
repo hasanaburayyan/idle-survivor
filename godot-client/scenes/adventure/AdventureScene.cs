@@ -13,6 +13,7 @@ public partial class AdventureScene : Node2D
 	private const float ZOMBIE_LERP_SPEED = 10f;
 	private const float PLAYER_LERP_SPEED = 10f;
 	private const float RETURN_DELAY = 4f;
+	private const float CLICK_ATTACK_RADIUS = 50f;
 
 	private PackedScene _playerScene = GD.Load<PackedScene>("uid://cl6yviutw6arx");
 	private PackedScene _zombieScene = GD.Load<PackedScene>("uid://cklegshx4bjbl");
@@ -421,6 +422,40 @@ public partial class AdventureScene : Node2D
 	}
 
 	// ── Click / auto attack ─────────────────────────────────────
+
+	public override void _UnhandledInput(InputEvent @event)
+	{
+		if (_adventureEnded || _localPlayerNode is null) return;
+		if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
+		{
+			var clickWorldPos = ScreenToWorld(mb.Position);
+			ulong nearestId = 0;
+			float nearestDistSq = float.MaxValue;
+			foreach (var (id, zombie) in _zombieNodes)
+			{
+				if (zombie.IsDying) continue;
+				float dSq = clickWorldPos.DistanceSquaredTo(zombie.Position);
+				if (dSq < nearestDistSq)
+				{
+					nearestDistSq = dSq;
+					nearestId = id;
+				}
+			}
+			if (nearestId != 0 && nearestDistSq <= CLICK_ATTACK_RADIUS * CLICK_ATTACK_RADIUS)
+			{
+				SendPositionAndAttack(nearestId);
+				GetViewport().SetInputAsHandled();
+			}
+		}
+	}
+
+	private Vector2 ScreenToWorld(Vector2 screenPos)
+	{
+		Vector2 screenSize = GetViewport().GetVisibleRect().Size;
+		Vector2 vpSize = new Vector2(_subViewport.Size.X, _subViewport.Size.Y);
+		Vector2 svpPos = screenPos * vpSize / screenSize;
+		return _camera.Position + (svpPos - vpSize / 2f) / _camera.Zoom;
+	}
 
 	private void SendPositionAndAttack(ulong zombieId)
 	{

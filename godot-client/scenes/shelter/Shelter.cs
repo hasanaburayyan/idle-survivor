@@ -24,32 +24,18 @@ public partial class Shelter : Node2D
 	private PackedScene _playerScene = GD.Load<PackedScene>("uid://cl6yviutw6arx");
 	private PackedScene _resourceTrackingScene = GD.Load<PackedScene>("uid://bmw2ixd8nj1t8");
 	private PackedScene _activityScene = GD.Load<PackedScene>("uid://bjckoiwufesye");
-	private PackedScene _zombieScene = GD.Load<PackedScene>("uid://cklegshx4bjbl");
 	private PackedScene _adventureScene = GD.Load<PackedScene>("res://scenes/adventure/adventure.tscn");
 	private PackedScene _riskyBusinessScene = GD.Load<PackedScene>("res://scenes/risky_business/risky_business.tscn");
 
-	private Dictionary<SpacetimeDB.Identity, Player> _guildMemberSprites = new();
-	private bool _inGuildHall;
-	private RandomNumberGenerator _rng = new();
-	private Color _currentZombieTint = Colors.White;
+	private ZombieManager _zombieManager;
+	private GuildMemberManager _guildMemberManager;
 
 	private Label _locationLabel;
 	private Button _travelShelterButton;
 	private Button _travelGuildHallButton;
 	private Button _travelWastesButton;
 
-	private PanelContainer _craftingPanel;
-	private VBoxContainer _craftingList;
-
-	private bool _placementMode;
-	private Node2D _placementGhost;
-	private ulong _pendingDefinitionId;
-	private string _pendingStructureName;
-	private bool _pendingIndoorOnly;
-	private bool _placementValid = true;
-
-	private Dictionary<ulong, Node2D> _placedStructureNodes = new();
-	private ulong? _openStructureDefId;
+	private StructureManager _structureManager;
 
 	private Dictionary<ulong, Activity> _activityNodes = new();
 
@@ -66,10 +52,7 @@ public partial class Shelter : Node2D
 	private PanelContainer _modalSkills;
 	private PanelContainer _modalSystem;
 
-	private Control _structureCraftPopup;
-	private PanelContainer _modalStructureCraft;
-	private Label _structureCraftTitle;
-	private VBoxContainer _structureCraftList;
+	private StructureCraftPopupManager _structureCraftPopupManager;
 
 	private Button _btnCharacter;
 	private Button _btnInventory;
@@ -78,12 +61,7 @@ public partial class Shelter : Node2D
 	private Button _btnSkills;
 	private Button _btnSystem;
 
-	private Control _gearInventoryPopup;
-	private PanelContainer _modalGearInventory;
-	private GridContainer _inventoryGrid;
-	private HBoxContainer _equipmentSlotsContainer;
-	private VBoxContainer _chestPanel;
-	private GridContainer _chestGrid;
+	private GearInventoryManager _gearInventoryManager;
 
 	private int? _openPopupIndex;
 
@@ -98,14 +76,12 @@ public partial class Shelter : Node2D
 	private Label _xpLabel;
 	private Label _skillPointsLabel;
 
-	private Label _skillsAvailableLabel;
-	private VBoxContainer _skillsList;
+	private SkillsManager _skillsManager;
 
 	private Rect2 _spawnOuterRect;
 	private Rect2 _spawnExclusion;
 	private Vector2 _mapScale;
 	private TileMapLayer _buildingLayer;
-	private readonly Queue<Vector2> _pendingKillPositions = new();
 
 	public override void _Ready()
 	{
@@ -151,8 +127,14 @@ public partial class Shelter : Node2D
 		_btnSkills.Pressed += () => TogglePopup(4);
 		_btnSystem.Pressed += () => TogglePopup(5);
 
-		BuildStructureCraftPopup();
-		BuildGearInventoryPopup();
+		_structureCraftPopupManager = new StructureCraftPopupManager();
+		AddChild(_structureCraftPopupManager);
+		_structureCraftPopupManager.Init(GetNode<CanvasLayer>("CanvasLayerPopups"));
+		_structureCraftPopupManager.CloseRequested += CloseAllPopups;
+		_gearInventoryManager = new GearInventoryManager();
+		AddChild(_gearInventoryManager);
+		_gearInventoryManager.Init(GetNode<CanvasLayer>("CanvasLayerPopups"));
+		_gearInventoryManager.CloseRequested += CloseAllPopups;
 
 		_btnSkills.Visible = false;
 
@@ -167,8 +149,9 @@ public partial class Shelter : Node2D
 			SpacetimeNetworkManager.Instance?.Conn?.Reducers.DebugLevelUp();
 		};
 
-		_skillsAvailableLabel = GetNode<Label>("%SkillsAvailableLabel");
-		_skillsList = GetNode<VBoxContainer>("%SkillsList");
+		_skillsManager = new SkillsManager();
+		AddChild(_skillsManager);
+		_skillsManager.Init(GetNode<Label>("%SkillsAvailableLabel"), GetNode<VBoxContainer>("%SkillsList"));
 
 		SetProcessInput(true);
 
@@ -183,7 +166,7 @@ public partial class Shelter : Node2D
 		_localPlayerNode.SetName(player.DisplayName);
 		_localPlayerNode.BindActivityDisplay(SpacetimeNetworkManager.Instance.LocalIdentity);
 		_localPlayerNode.AutoKillEnabled = HasSkillByName(conn, SpacetimeNetworkManager.Instance.LocalIdentity, "Auto Kill Zombie");
-		_localPlayerNode.KillRequested += OnPlayerKillRequested;
+		_localPlayerNode.KillRequested += () => _zombieManager?.OnPlayerKillRequested();
 
 		var groundLayer = _worldRoot.GetNode<Node2D>("PlayfieldMap/TileMapLayer");
 		_mapScale = _worldRoot.GetNode<Node2D>("PlayfieldMap").Scale;
@@ -205,8 +188,14 @@ public partial class Shelter : Node2D
 		Vector2 center = colShape.Position * area.Scale;
 		_spawnOuterRect = new Rect2(center - halfExtents, halfExtents * 2f);
 
-		for (int i = 0; i < 100; i++)
-			SpawnZombie();
+		_zombieManager = new ZombieManager();
+		AddChild(_zombieManager);
+		_zombieManager.Init(_worldRoot, _buildingLayer, _mapScale, _spawnOuterRect, _spawnExclusion, _localPlayerNode);
+		_zombieManager.LootReceived += SpawnFloatingLoot;
+
+		_guildMemberManager = new GuildMemberManager();
+		AddChild(_guildMemberManager);
+		_guildMemberManager.Init(_worldRoot, _playerSpawnPosition);
 
 		_statsPanel.InitStats(SpacetimeNetworkManager.Instance.LocalIdentity);
 
@@ -238,25 +227,14 @@ public partial class Shelter : Node2D
 		conn.Db.PlayerLevel.OnUpdate += OnPlayerLevelUpdate;
 		conn.Db.PlayerSkill.OnInsert += OnPlayerSkillInsert;
 
-		_guildSocialPanel.GuildSessionChanged += OnGuildSessionChanged;
+		_guildSocialPanel.GuildSessionChanged += _guildMemberManager.OnGuildSessionChanged;
 
 		conn.Db.Player.OnUpdate += OnPlayerUpdate;
 
 		conn.Db.PlayerShelter.OnInsert += OnPlayerShelterInsert;
-		conn.Db.PlayerStructure.OnInsert += OnPlayerStructureInsert;
-		conn.Db.KillLoot.OnInsert += OnKillLootInsert;
 
-		conn.Db.InventoryItem.OnInsert += OnInventoryItemChanged;
-		conn.Db.InventoryItem.OnDelete += OnInventoryItemDeleted;
-		conn.Db.EquippedGear.OnInsert += OnEquippedGearChanged;
-		conn.Db.EquippedGear.OnDelete += OnEquippedGearDeleted;
-		conn.Db.ChestItem.OnInsert += OnChestItemChanged;
-		conn.Db.ChestItem.OnDelete += OnChestItemDeleted;
 		conn.Db.AdventureParticipant.OnInsert += OnAdventureParticipantInsert;
 		conn.Db.RiskyBusinessParticipant.OnInsert += OnRiskyBusinessParticipantInsert;
-
-		foreach (var ps in conn.Db.PlayerStructure.Owner.Filter(SpacetimeNetworkManager.Instance.LocalIdentity))
-			SpawnStructureNode(ps);
 
 		GetViewport().SizeChanged += OnViewportSizeChanged;
 		CallDeferred(nameof(FitCameraToPlayfield));
@@ -267,58 +245,45 @@ public partial class Shelter : Node2D
 		_relevantResourcesPanel = GetNode<PanelContainer>("%RelevantResourcesPanel");
 		_relevantResourcesTitle = GetNode<Label>("%RelevantResourcesTitle");
 		_relevantStatsTitle = GetNode<Label>("%RelevantStatsTitle");
-		BuildCraftingPanel();
+		var craftingPanel = GetNode<PanelContainer>("%CraftingPanel");
+		var craftingList = GetNode<VBoxContainer>("%CraftingList");
+		_structureManager = new StructureManager();
+		AddChild(_structureManager);
+		_structureManager.Init(_worldRoot, _buildingLayer, _mapScale, _subViewport, _camera, craftingPanel, craftingList);
+		_structureManager.StructureClicked += OpenStructureCraftMenu;
+		_structureManager.PlacementStarted += CloseAllPopups;
+
 		RefreshLocationUI();
 		RefreshXpBar();
 	}
 
 	public override void _Process(double delta)
 	{
-		if (_placementMode && _placementGhost != null)
-		{
-			var mousePos = _subViewport.GetMousePosition();
-			var worldPos = _camera.Position + (mousePos - (Vector2)_subViewport.Size / 2f) / _camera.Zoom;
-			_placementGhost.Position = worldPos;
-
-			if (_pendingIndoorOnly)
-			{
-				var localPos = worldPos / _mapScale;
-				var tileCoord = _buildingLayer.LocalToMap(localPos);
-				bool onBuilding = _buildingLayer.GetCellSourceId(tileCoord) != -1;
-				_placementValid = onBuilding;
-				_placementGhost.Modulate = onBuilding
-					? new Color(1f, 1f, 1f, 0.6f)
-					: new Color(1f, 0.2f, 0.2f, 0.6f);
-			}
-			else
-			{
-				_placementValid = true;
-			}
-		}
+		_structureManager?.ProcessPlacement();
 	}
 
 	public override void _Input(InputEvent @event)
 	{
-		if (_placementMode)
+		if (_structureManager != null && _structureManager.InPlacementMode)
 		{
 			if (@event is InputEventMouseButton mb && mb.Pressed)
 			{
 				if (mb.ButtonIndex == MouseButton.Left)
 				{
-					ConfirmPlacement();
+					_structureManager.ConfirmPlacement();
 					GetViewport().SetInputAsHandled();
 					return;
 				}
 				if (mb.ButtonIndex == MouseButton.Right)
 				{
-					CancelPlacement();
+					_structureManager.CancelPlacement();
 					GetViewport().SetInputAsHandled();
 					return;
 				}
 			}
 			if (@event.IsActionPressed("ui_cancel"))
 			{
-				CancelPlacement();
+				_structureManager.CancelPlacement();
 				GetViewport().SetInputAsHandled();
 				return;
 			}
@@ -341,11 +306,11 @@ public partial class Shelter : Node2D
 	{
 		0 => _modalCharacter,
 		1 => _modalInventory,
-		2 => _modalGearInventory,
+		2 => _gearInventoryManager.ModalPanel,
 		3 => _modalSocial,
 		4 => _modalSkills,
 		5 => _modalSystem,
-		6 => _modalStructureCraft,
+		6 => _structureCraftPopupManager.ModalPanel,
 		_ => null,
 	};
 
@@ -353,9 +318,9 @@ public partial class Shelter : Node2D
 	{
 		if (@event.IsActionPressed("ui_cancel"))
 		{
-			if (_placementMode)
+			if (_structureManager != null && _structureManager.InPlacementMode)
 			{
-				CancelPlacement();
+				_structureManager.CancelPlacement();
 				GetViewport().SetInputAsHandled();
 				return;
 			}
@@ -399,11 +364,11 @@ public partial class Shelter : Node2D
 		_popupBackdrop.Visible = true;
 		_characterPopup.Visible = index == 0;
 		_inventoryPopup.Visible = index == 1;
-		_gearInventoryPopup.Visible = index == 2;
+		_gearInventoryManager.Popup.Visible = index == 2;
 		_socialPopup.Visible = index == 3;
 		_skillsPopup.Visible = index == 4;
 		_systemPopup.Visible = index == 5;
-		_structureCraftPopup.Visible = index == 6;
+		_structureCraftPopupManager.Popup.Visible = index == 6;
 
 		switch (index)
 		{
@@ -411,17 +376,17 @@ public partial class Shelter : Node2D
 				_characterProfilePanel.RefreshOnOpen();
 				break;
 			case 2:
-				RefreshGearInventory();
+				_gearInventoryManager.SetOpen(true);
 				break;
 			case 3:
 				_friendsSocialPanel.RefreshOnOpen();
 				_guildSocialPanel.RefreshOnOpen();
 				break;
 			case 4:
-				RefreshSkillsPanel();
+				_skillsManager.SetOpen(true);
 				break;
 			case 6:
-				RefreshStructureCraftMenu();
+				_structureCraftPopupManager.Refresh();
 				break;
 		}
 	}
@@ -432,12 +397,13 @@ public partial class Shelter : Node2D
 		_popupBackdrop.Visible = false;
 		_characterPopup.Visible = false;
 		_inventoryPopup.Visible = false;
-		_gearInventoryPopup.Visible = false;
+		_gearInventoryManager.Popup.Visible = false;
+		_gearInventoryManager.SetOpen(false);
 		_socialPopup.Visible = false;
 		_skillsPopup.Visible = false;
 		_systemPopup.Visible = false;
-		_structureCraftPopup.Visible = false;
-		_openStructureDefId = null;
+		_structureCraftPopupManager.Popup.Visible = false;
+		_structureCraftPopupManager.Close();
 	}
 
 	private void OnViewportSizeChanged()
@@ -497,12 +463,6 @@ public partial class Shelter : Node2D
 		_travelWastesButton.Pressed += () => SpacetimeNetworkManager.Instance.Conn.Reducers.Travel(LocationType.Wastes);
 	}
 
-	private void BuildCraftingPanel()
-	{
-		_craftingPanel = GetNode<PanelContainer>("%CraftingPanel");
-		_craftingList = GetNode<VBoxContainer>("%CraftingList");
-		RefreshCraftingMenu();
-	}
 
 	private static string LocationDisplayName(LocationType loc) => loc switch
 	{
@@ -721,17 +681,17 @@ public partial class Shelter : Node2D
 		bool isWastes = loc == LocationType.Wastes;
 		playfield.Modulate = isWastes ? new Color(1.0f, 0.7f, 0.7f) : Colors.White;
 
-		_currentZombieTint = isWastes ? new Color(1.0f, 0.6f, 0.6f) : Colors.White;
-		ApplyZombieTint(_currentZombieTint);
+		var zombieTint = isWastes ? new Color(1.0f, 0.6f, 0.6f) : Colors.White;
+		_zombieManager?.SetTint(zombieTint);
 
 		_travelShelterButton.Visible = loc != LocationType.Shelter;
 		_travelGuildHallButton.Visible = true;
 		_travelWastesButton.Visible = loc != LocationType.Wastes && HasSkillByName(conn, localId, "Unlock Wastes");
 
 		bool isShelterLoc = loc == LocationType.Shelter || loc == LocationType.GuildHall || loc == LocationType.Wastes;
-		_craftingPanel.Visible = isShelterLoc;
+		_structureManager?.SetCraftingPanelVisible(isShelterLoc);
 		if (isShelterLoc)
-			RefreshCraftingMenu();
+			_structureManager?.RefreshCraftingMenu();
 
 		RefreshActivityVisibility();
 		RefreshRelevantLocationContext();
@@ -760,83 +720,6 @@ public partial class Shelter : Node2D
 		_activitiesPanel.AddChild(activitySelection);
 		activitySelection.InitActivityTracking(activity.Id);
 		_activityNodes[activity.Id] = activitySelection;
-	}
-
-	private void RefreshCraftingMenu()
-	{
-		foreach (var child in _craftingList.GetChildren())
-			child.QueueFree();
-
-		var conn = SpacetimeNetworkManager.Instance.Conn;
-		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
-
-		foreach (var definition in conn.Db.StructureDefinition.Iter())
-		{
-			var alreadyBuilt = conn.Db.PlayerStructure.ByOwnerAndDefinition
-				.Filter((Owner: localId, DefinitionId: definition.Id)).Any();
-
-			var entry = new VBoxContainer();
-			entry.AddThemeConstantOverride("separation", 2);
-
-			var row = new HBoxContainer();
-			row.AddThemeConstantOverride("separation", 8);
-
-			var nameLabel = new Label();
-			nameLabel.Text = definition.Name;
-			nameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-			row.AddChild(nameLabel);
-
-			var costLabel = new Label();
-			var costParts = definition.Cost.Select(c => $"{c.Amount} {c.Type}");
-			costLabel.Text = string.Join(", ", costParts);
-			costLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
-			row.AddChild(costLabel);
-
-			if (alreadyBuilt)
-			{
-				var builtLabel = new Label();
-				builtLabel.Text = "Built";
-				builtLabel.AddThemeColorOverride("font_color", new Color(0.3f, 1f, 0.3f));
-				row.AddChild(builtLabel);
-			}
-			else
-			{
-				var buildBtn = new Button();
-				buildBtn.Text = "Build";
-				buildBtn.CustomMinimumSize = new Vector2(80, 28);
-				var capturedId = definition.Id;
-				var capturedName = definition.Name;
-				var capturedIndoor = definition.IndoorOnly;
-				buildBtn.Pressed += () => EnterPlacementMode(capturedId, capturedName, capturedIndoor);
-				row.AddChild(buildBtn);
-			}
-
-			entry.AddChild(row);
-
-			var recipeNames = conn.Db.CraftingRecipe.StructureDefinitionId
-				.Filter(definition.Id)
-				.Select(r => r.Name)
-				.ToList();
-			if (recipeNames.Count > 0)
-			{
-				var recipesLabel = new Label();
-				recipesLabel.Text = $"Recipes: {string.Join(", ", recipeNames)}";
-				recipesLabel.AddThemeColorOverride("font_color", new Color(0.5f, 0.7f, 0.9f));
-				recipesLabel.AddThemeFontSizeOverride("font_size", 14);
-				entry.AddChild(recipesLabel);
-			}
-
-			_craftingList.AddChild(entry);
-		}
-
-		if (_craftingList.GetChildCount() == 0)
-		{
-			var empty = new Label();
-			empty.Text = "Nothing to craft";
-			empty.HorizontalAlignment = HorizontalAlignment.Center;
-			empty.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
-			_craftingList.AddChild(empty);
-		}
 	}
 
 	private static bool HasSkillByName(DbConnection conn, SpacetimeDB.Identity owner, string skillName)
@@ -881,104 +764,6 @@ public partial class Shelter : Node2D
 		tween.TweenProperty(btn, "modulate", Colors.White, 0.25);
 	}
 
-	private static bool IsSkillExposed(DbConnection conn, SpacetimeDB.Identity owner, SpacetimeDB.Types.SkillDefinition skill)
-	{
-		bool hasAnyPrereq = skill.PrerequisiteSkillId is not null || skill.PrerequisiteSkillId2 is not null;
-		if (!hasAnyPrereq) return true;
-
-		if (skill.PrerequisiteSkillId is ulong p1
-			&& conn.Db.PlayerSkill.BySkillOwnerDef.Filter((Owner: owner, SkillDefinitionId: p1)).Any())
-			return true;
-		if (skill.PrerequisiteSkillId2 is ulong p2
-			&& conn.Db.PlayerSkill.BySkillOwnerDef.Filter((Owner: owner, SkillDefinitionId: p2)).Any())
-			return true;
-
-		return false;
-	}
-
-	private void RefreshSkillsPanel()
-	{
-		var conn = SpacetimeNetworkManager.Instance.Conn;
-		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
-		var pl = conn.Db.PlayerLevel.Owner.Find(localId);
-		uint availableSp = pl?.AvailableSkillPoints ?? 0;
-
-		_skillsAvailableLabel.Text = $"Available Skill Points: {availableSp}";
-
-		foreach (var child in _skillsList.GetChildren())
-			child.QueueFree();
-
-		foreach (var skill in conn.Db.SkillDefinition.Iter())
-		{
-			if (!IsSkillExposed(conn, localId, skill))
-				continue;
-
-			bool owned = conn.Db.PlayerSkill.BySkillOwnerDef
-				.Filter((Owner: localId, SkillDefinitionId: skill.Id)).Any();
-
-			bool meetsPrereq = true;
-			if (skill.PrerequisiteSkillId is not null || skill.PrerequisiteSkillId2 is not null)
-			{
-				bool has1 = skill.PrerequisiteSkillId is not ulong r1
-					|| conn.Db.PlayerSkill.BySkillOwnerDef.Filter((Owner: localId, SkillDefinitionId: r1)).Any();
-				bool has2 = skill.PrerequisiteSkillId2 is not ulong r2
-					|| conn.Db.PlayerSkill.BySkillOwnerDef.Filter((Owner: localId, SkillDefinitionId: r2)).Any();
-				meetsPrereq = has1 || has2;
-			}
-			bool meetsLevel = skill.RequiredLevel is not uint reqLvl || (pl?.Level ?? 0) >= reqLvl;
-			bool canAfford = availableSp >= skill.Cost;
-
-			var outer = new VBoxContainer();
-			outer.AddThemeConstantOverride("separation", 2);
-
-			var row = new HBoxContainer();
-			row.AddThemeConstantOverride("separation", 8);
-
-			var nameLabel = new Label();
-			nameLabel.Text = skill.Name;
-			nameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-			nameLabel.AddThemeFontSizeOverride("font_size", 18);
-			row.AddChild(nameLabel);
-
-			var costLabel = new Label();
-			costLabel.Text = $"{skill.Cost} SP";
-			costLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
-			row.AddChild(costLabel);
-
-			if (owned)
-			{
-				var ownedLabel = new Label();
-				ownedLabel.Text = "Learned";
-				ownedLabel.AddThemeColorOverride("font_color", new Color(0.3f, 1f, 0.3f));
-				row.AddChild(ownedLabel);
-			}
-			else
-			{
-				var purchaseBtn = new Button();
-				purchaseBtn.Text = "Learn";
-				purchaseBtn.CustomMinimumSize = new Vector2(80, 28);
-				purchaseBtn.Disabled = !meetsLevel || !meetsPrereq || !canAfford;
-				var capturedId = skill.Id;
-				purchaseBtn.Pressed += () =>
-				{
-					conn.Reducers.PurchaseSkill(capturedId);
-					CallDeferred(nameof(RefreshSkillsPanel));
-				};
-				row.AddChild(purchaseBtn);
-			}
-
-			outer.AddChild(row);
-
-			var descLabel = new Label();
-			descLabel.Text = skill.Description;
-			descLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
-			descLabel.AddThemeFontSizeOverride("font_size", 14);
-			outer.AddChild(descLabel);
-
-			_skillsList.AddChild(outer);
-		}
-	}
-
 	private void OnPlayerLevelChange(EventContext ctx, SpacetimeDB.Types.PlayerLevel row)
 	{
 		if (row.Owner != SpacetimeNetworkManager.Instance.LocalIdentity) return;
@@ -991,7 +776,7 @@ public partial class Shelter : Node2D
 		if (newRow.Owner != SpacetimeNetworkManager.Instance.LocalIdentity) return;
 		RefreshXpBar();
 		RefreshActivityVisibility();
-		if (_openPopupIndex == 4) RefreshSkillsPanel();
+		if (_openPopupIndex == 4) _skillsManager.RefreshIfOpen();
 	}
 
 	private void OnPlayerSkillInsert(EventContext ctx, SpacetimeDB.Types.PlayerSkill row)
@@ -999,7 +784,7 @@ public partial class Shelter : Node2D
 		if (row.Owner != SpacetimeNetworkManager.Instance.LocalIdentity) return;
 		RefreshXpBar();
 		RefreshActivityVisibility();
-		if (_openPopupIndex == 4) RefreshSkillsPanel();
+		if (_openPopupIndex == 4) _skillsManager.RefreshIfOpen();
 
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		if (_localPlayerNode != null)
@@ -1009,127 +794,31 @@ public partial class Shelter : Node2D
 			RefreshLocationUI();
 	}
 
-	private void OnGuildSessionChanged(bool inSession)
-	{
-		_inGuildHall = inSession;
-		if (inSession)
-			SpawnGuildMembers();
-		else
-			DespawnAllGuildMembers();
-	}
-
-	private void SpawnGuildMembers()
-	{
-		var conn = SpacetimeNetworkManager.Instance.Conn;
-		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
-		var membership = conn.Db.GuildMember.PlayerId.Find(localId);
-		if (membership is null) return;
-
-		foreach (var member in conn.Db.GuildMember.GuildId.Filter(membership.GuildId))
-		{
-			if (member.PlayerId == localId) continue;
-
-			var memberPlayer = conn.Db.Player.Identity.Find(member.PlayerId);
-			if (memberPlayer is null || !memberPlayer.Online) continue;
-			if (memberPlayer.Location != LocationType.GuildHall) continue;
-
-			SpawnMemberSprite(member.PlayerId, memberPlayer.DisplayName);
-		}
-	}
-
-	private void SpawnMemberSprite(SpacetimeDB.Identity playerId, string displayName)
-	{
-		if (_guildMemberSprites.ContainsKey(playerId)) return;
-
-		var sprite = _playerScene.Instantiate<Player>();
-		var viewport = _worldRoot.GetViewport().GetVisibleRect();
-		float margin = 80f;
-		float x = _rng.RandfRange(margin, viewport.Size.X - margin);
-		float y = _playerSpawnPosition.Position.Y + _rng.RandfRange(-20, 20);
-		sprite.Position = new Vector2(x, y);
-		sprite.ZIndex = 0;
-		_worldRoot.AddChild(sprite);
-		sprite.SetName(displayName);
-		sprite.BindActivityDisplay(playerId);
-		_guildMemberSprites[playerId] = sprite;
-	}
-
-	private void DespawnMemberSprite(SpacetimeDB.Identity playerId)
-	{
-		if (_guildMemberSprites.TryGetValue(playerId, out var sprite))
-		{
-			sprite.QueueFree();
-			_guildMemberSprites.Remove(playerId);
-		}
-	}
-
-	private void DespawnAllGuildMembers()
-	{
-		foreach (var kvp in _guildMemberSprites)
-			kvp.Value.QueueFree();
-		_guildMemberSprites.Clear();
-	}
-
 	private void OnPlayerUpdate(EventContext ctx, SpacetimeDB.Types.Player oldPlayer, SpacetimeDB.Types.Player newPlayer)
 	{
-		if (newPlayer.Identity == SpacetimeNetworkManager.Instance.LocalIdentity)
-		{
-			if (oldPlayer.DisplayName != newPlayer.DisplayName)
-				_localPlayerNode.SetName(newPlayer.DisplayName);
-
-			if (oldPlayer.Location != newPlayer.Location)
-			{
-				RefreshLocationUI();
-
-				bool wasGuildHall = oldPlayer.Location == LocationType.GuildHall;
-				bool isGuildHall = newPlayer.Location == LocationType.GuildHall;
-				if (!wasGuildHall && isGuildHall)
-				{
-					_inGuildHall = true;
-					SpawnGuildMembers();
-				}
-				else if (wasGuildHall && !isGuildHall)
-				{
-					_inGuildHall = false;
-					DespawnAllGuildMembers();
-				}
-			}
+		if (newPlayer.Identity != SpacetimeNetworkManager.Instance.LocalIdentity)
 			return;
-		}
 
-		if (!_inGuildHall) return;
-
-		if (oldPlayer.DisplayName != newPlayer.DisplayName
-			&& _guildMemberSprites.TryGetValue(newPlayer.Identity, out var sprite))
-		{
-			sprite.SetName(newPlayer.DisplayName);
-		}
+		if (oldPlayer.DisplayName != newPlayer.DisplayName)
+			_localPlayerNode.SetName(newPlayer.DisplayName);
 
 		if (oldPlayer.Location != newPlayer.Location)
 		{
-			if (newPlayer.Location == LocationType.GuildHall && newPlayer.Online)
-				SpawnMemberSprite(newPlayer.Identity, newPlayer.DisplayName);
-			else
-				DespawnMemberSprite(newPlayer.Identity);
-		}
+			RefreshLocationUI();
 
-		if (oldPlayer.Online && !newPlayer.Online)
-			DespawnMemberSprite(newPlayer.Identity);
+			bool wasGuildHall = oldPlayer.Location == LocationType.GuildHall;
+			bool isGuildHall = newPlayer.Location == LocationType.GuildHall;
+			if (!wasGuildHall && isGuildHall)
+				_guildMemberManager.OnGuildSessionChanged(true);
+			else if (wasGuildHall && !isGuildHall)
+				_guildMemberManager.OnGuildSessionChanged(false);
+		}
 	}
 
 	private void OnPlayerShelterInsert(EventContext ctx, SpacetimeDB.Types.PlayerShelter shelter)
 	{
 		if (shelter.Owner == SpacetimeNetworkManager.Instance.LocalIdentity)
 			RefreshLocationUI();
-	}
-
-	private void OnPlayerStructureInsert(EventContext ctx, SpacetimeDB.Types.PlayerStructure structure)
-	{
-		if (structure.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
-			return;
-
-		SpawnStructureNode(structure);
-		RefreshCraftingMenu();
 	}
 
 	private void OnResourceTrackerInsert(EventContext ctx, SpacetimeDB.Types.ResourceTracker tracker)
@@ -1178,72 +867,6 @@ public partial class Shelter : Node2D
 		RefreshRelevantLocationContext();
 	}
 
-	private void SpawnZombie()
-	{
-		Vector2 point;
-		do
-		{
-			point = new Vector2(
-				_rng.RandfRange(_spawnOuterRect.Position.X, _spawnOuterRect.End.X),
-				_rng.RandfRange(_spawnOuterRect.Position.Y, _spawnOuterRect.End.Y)
-			);
-		} while (_spawnExclusion.HasPoint(point));
-
-		var zombie = _zombieScene.Instantiate<Zombie>();
-		zombie.Position = point * _mapScale;
-		zombie.BuildingLayer = _buildingLayer;
-		zombie.Modulate = _currentZombieTint;
-		zombie.Killed += () => OnZombieKilled(zombie.Position);
-		_worldRoot.AddChild(zombie);
-	}
-
-	private void ApplyZombieTint(Color tint)
-	{
-		foreach (var child in _worldRoot.GetChildren())
-			if (child is Zombie z)
-				z.Modulate = tint;
-	}
-
-	private void OnPlayerKillRequested()
-	{
-		var alive = new System.Collections.Generic.List<Zombie>();
-		foreach (var child in _worldRoot.GetChildren())
-		{
-			if (child is Zombie z && !z.IsDying)
-				alive.Add(z);
-		}
-		if (alive.Count == 0)
-			return;
-
-		var playerPos = _localPlayerNode.Position;
-		alive.Sort((a, b) =>
-			a.Position.DistanceSquaredTo(playerPos).CompareTo(b.Position.DistanceSquaredTo(playerPos)));
-
-		int pool = Math.Min(alive.Count, 10);
-		var target = alive[_rng.RandiRange(0, pool - 1)];
-		target.Die();
-	}
-
-	private void OnZombieKilled(Vector2 deathPosition)
-	{
-		_pendingKillPositions.Enqueue(deathPosition);
-		SpacetimeNetworkManager.Instance.Conn.Reducers.KillZombie();
-		SpawnZombie();
-	}
-
-	private void OnKillLootInsert(EventContext ctx, SpacetimeDB.Types.KillLoot loot)
-	{
-		if (loot.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
-			return;
-
-		var pos = _pendingKillPositions.Count > 0
-			? _pendingKillPositions.Dequeue()
-			: _localPlayerNode.Position;
-
-		SpawnFloatingLoot(pos, $"+{loot.Amount} {loot.Resource}");
-		SpacetimeNetworkManager.Instance.Conn.Reducers.AckKillLoot(loot.Id);
-	}
-
 	private void OnAdventureParticipantInsert(EventContext ctx, SpacetimeDB.Types.AdventureParticipant participant)
 	{
 		if (participant.PlayerId != SpacetimeNetworkManager.Instance.LocalIdentity) return;
@@ -1266,671 +889,10 @@ public partial class Shelter : Node2D
 		GetTree().ChangeSceneToPacked(_riskyBusinessScene);
 	}
 
-	private static readonly Vector2 StructureSize = new(64, 64);
-
-	private void EnterPlacementMode(ulong definitionId, string structureName, bool indoorOnly)
-	{
-		if (_placementMode) return;
-		CloseAllPopups();
-
-		_placementMode = true;
-		_pendingDefinitionId = definitionId;
-		_pendingStructureName = structureName;
-		_pendingIndoorOnly = indoorOnly;
-		_placementValid = !indoorOnly;
-
-		var assetPath = $"res://assets/structures/{structureName.Replace(" ", "_").ToLower()}.png";
-		if (ResourceLoader.Exists(assetPath))
-		{
-			var sprite = new Sprite2D();
-			sprite.Texture = GD.Load<Texture2D>(assetPath);
-			sprite.Modulate = new Color(1f, 1f, 1f, 0.6f);
-			_placementGhost = sprite;
-		}
-		else
-		{
-			var rect = new ColorRect();
-			rect.Size = StructureSize;
-			rect.Position = -StructureSize / 2f;
-			rect.Color = new Color(0.2f, 0.4f, 0.9f, 0.6f);
-			var container = new Node2D();
-			container.AddChild(rect);
-			_placementGhost = container;
-		}
-
-		_placementGhost.ZIndex = 50;
-		_worldRoot.AddChild(_placementGhost);
-	}
-
-	private void ConfirmPlacement()
-	{
-		if (!_placementMode || _placementGhost == null) return;
-		if (!_placementValid) return;
-
-		var pos = _placementGhost.Position;
-		var conn = SpacetimeNetworkManager.Instance.Conn;
-		conn.Reducers.BuildStructure(_pendingDefinitionId, (int)pos.X, (int)pos.Y);
-
-		_placementGhost.QueueFree();
-		_placementGhost = null;
-		_placementMode = false;
-	}
-
-	private void CancelPlacement()
-	{
-		if (!_placementMode) return;
-
-		if (_placementGhost != null)
-		{
-			_placementGhost.QueueFree();
-			_placementGhost = null;
-		}
-		_placementMode = false;
-	}
-
-	private void SpawnStructureNode(SpacetimeDB.Types.PlayerStructure ps)
-	{
-		if (_placedStructureNodes.ContainsKey(ps.Id)) return;
-
-		var conn = SpacetimeNetworkManager.Instance.Conn;
-		var def = conn.Db.StructureDefinition.Id.Find(ps.DefinitionId);
-		string structureName = def?.Name ?? "Unknown";
-
-		var area = new ClickableStructure();
-		area.Position = new Vector2(ps.PosX, ps.PosY);
-		area.ZIndex = 5;
-
-		var collision = new CollisionShape2D();
-		var shape = new RectangleShape2D();
-		shape.Size = StructureSize;
-		collision.Shape = shape;
-		area.AddChild(collision);
-
-		var assetPath = $"res://assets/structures/{structureName.Replace(" ", "_").ToLower()}.png";
-		if (ResourceLoader.Exists(assetPath))
-		{
-			var sprite = new Sprite2D();
-			sprite.Texture = GD.Load<Texture2D>(assetPath);
-			area.AddChild(sprite);
-		}
-		else
-		{
-			var rect = new ColorRect();
-			rect.Size = StructureSize;
-			rect.Position = -StructureSize / 2f;
-			rect.MouseFilter = Control.MouseFilterEnum.Ignore;
-			area.AddChild(rect);
-
-			var label = new Label();
-			label.Text = structureName;
-			label.HorizontalAlignment = HorizontalAlignment.Center;
-			label.Position = new Vector2(-StructureSize.X / 2f, -StructureSize.Y / 2f - 20);
-			label.Size = new Vector2(StructureSize.X, 20);
-			label.AddThemeFontSizeOverride("font_size", 12);
-			label.AddThemeColorOverride("font_color", Colors.White);
-			label.MouseFilter = Control.MouseFilterEnum.Ignore;
-			area.AddChild(label);
-		}
-
-		var capturedDefId = ps.DefinitionId;
-		area.StructureClicked += () =>
-		{
-			if (!_placementMode)
-				OpenStructureCraftMenu(capturedDefId);
-		};
-
-		_worldRoot.AddChild(area);
-		_placedStructureNodes[ps.Id] = area;
-	}
-
-	private void BuildStructureCraftPopup()
-	{
-		var popupLayer = GetNode<CanvasLayer>("CanvasLayerPopups");
-
-		_structureCraftPopup = new Control();
-		_structureCraftPopup.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		_structureCraftPopup.Visible = false;
-		popupLayer.AddChild(_structureCraftPopup);
-
-		var center = new CenterContainer();
-		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		_structureCraftPopup.AddChild(center);
-
-		var panel = new PanelContainer();
-		panel.CustomMinimumSize = new Vector2(500, 400);
-		var panelStyle = new StyleBoxFlat();
-		panelStyle.BgColor = new Color(0.12f, 0.12f, 0.15f, 0.95f);
-		panelStyle.CornerRadiusTopLeft = 8;
-		panelStyle.CornerRadiusTopRight = 8;
-		panelStyle.CornerRadiusBottomLeft = 8;
-		panelStyle.CornerRadiusBottomRight = 8;
-		panelStyle.ContentMarginLeft = 16;
-		panelStyle.ContentMarginRight = 16;
-		panelStyle.ContentMarginTop = 16;
-		panelStyle.ContentMarginBottom = 16;
-		panel.AddThemeStyleboxOverride("panel", panelStyle);
-		center.AddChild(panel);
-		_modalStructureCraft = panel;
-
-		var vbox = new VBoxContainer();
-		vbox.AddThemeConstantOverride("separation", 12);
-		panel.AddChild(vbox);
-
-		var header = new HBoxContainer();
-		_structureCraftTitle = new Label();
-		_structureCraftTitle.Text = "Crafting Station";
-		_structureCraftTitle.AddThemeFontSizeOverride("font_size", 22);
-		_structureCraftTitle.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		header.AddChild(_structureCraftTitle);
-
-		var closeBtn = new Button();
-		closeBtn.Text = "X";
-		closeBtn.CustomMinimumSize = new Vector2(32, 32);
-		closeBtn.Pressed += CloseAllPopups;
-		header.AddChild(closeBtn);
-		vbox.AddChild(header);
-
-		var sep = new HSeparator();
-		vbox.AddChild(sep);
-
-		var scroll = new ScrollContainer();
-		scroll.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		vbox.AddChild(scroll);
-
-		_structureCraftList = new VBoxContainer();
-		_structureCraftList.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		_structureCraftList.AddThemeConstantOverride("separation", 8);
-		scroll.AddChild(_structureCraftList);
-	}
-
 	private void OpenStructureCraftMenu(ulong structureDefinitionId)
 	{
-		_openStructureDefId = structureDefinitionId;
+		_structureCraftPopupManager.Open(structureDefinitionId);
 		OpenPopup(6);
-	}
-
-	private void RefreshStructureCraftMenu()
-	{
-		foreach (var child in _structureCraftList.GetChildren())
-			child.QueueFree();
-
-		if (_openStructureDefId is not ulong defId) return;
-
-		var conn = SpacetimeNetworkManager.Instance.Conn;
-		var def = conn.Db.StructureDefinition.Id.Find(defId);
-		_structureCraftTitle.Text = def != null ? $"{def.Name} — Recipes" : "Crafting Station";
-
-		foreach (var recipe in conn.Db.CraftingRecipe.StructureDefinitionId.Filter(defId))
-		{
-			var row = new VBoxContainer();
-			row.AddThemeConstantOverride("separation", 4);
-
-			var topRow = new HBoxContainer();
-			topRow.AddThemeConstantOverride("separation", 8);
-
-			var nameLabel = new Label();
-			nameLabel.Text = recipe.Name;
-			nameLabel.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-			nameLabel.AddThemeFontSizeOverride("font_size", 18);
-			if (recipe.IsGearRecipe)
-				nameLabel.AddThemeColorOverride("font_color", new Color(0.4f, 0.7f, 1.0f));
-			topRow.AddChild(nameLabel);
-
-			var craftBtn = new Button();
-			craftBtn.Text = "Craft";
-			craftBtn.CustomMinimumSize = new Vector2(80, 28);
-			var capturedRecipeId = recipe.Id;
-			var isGear = recipe.IsGearRecipe;
-			craftBtn.Pressed += () =>
-			{
-				if (isGear)
-					conn.Reducers.CraftGear(capturedRecipeId);
-				else
-					conn.Reducers.CraftRecipe(capturedRecipeId);
-			};
-			topRow.AddChild(craftBtn);
-			row.AddChild(topRow);
-
-			var costParts = recipe.InputCost.Select(c => $"{c.Amount} {c.Type}");
-			var detailLabel = new Label();
-			if (recipe.IsGearRecipe)
-			{
-				string gearName = FindGearNameForRecipe(conn, recipe.Id);
-				detailLabel.Text = $"Cost: {string.Join(", ", costParts)}  →  {gearName}";
-			}
-			else
-			{
-				detailLabel.Text = $"Cost: {string.Join(", ", costParts)}  →  {recipe.OutputAmount} {recipe.OutputResource}";
-			}
-			detailLabel.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
-			detailLabel.AddThemeFontSizeOverride("font_size", 14);
-			row.AddChild(detailLabel);
-
-			var rowSep = new HSeparator();
-			row.AddChild(rowSep);
-
-			_structureCraftList.AddChild(row);
-		}
-
-		if (_structureCraftList.GetChildCount() == 0)
-		{
-			var empty = new Label();
-			empty.Text = "No recipes available";
-			empty.HorizontalAlignment = HorizontalAlignment.Center;
-			empty.AddThemeColorOverride("font_color", new Color(0.6f, 0.6f, 0.6f));
-			_structureCraftList.AddChild(empty);
-		}
-	}
-
-	private static string FindGearNameForRecipe(DbConnection conn, ulong recipeId)
-	{
-		foreach (var def in conn.Db.GearDefinition.Iter())
-		{
-			if (def.CraftingRecipeId == recipeId)
-				return def.Name;
-		}
-		return "Gear";
-	}
-
-	private void OnInventoryItemChanged(EventContext ctx, SpacetimeDB.Types.InventoryItem item)
-	{
-		if (item.Owner != SpacetimeNetworkManager.Instance.LocalIdentity) return;
-		if (_openPopupIndex == 2) RefreshGearInventory();
-	}
-
-	private void OnInventoryItemDeleted(EventContext ctx, SpacetimeDB.Types.InventoryItem item)
-	{
-		if (item.Owner != SpacetimeNetworkManager.Instance.LocalIdentity) return;
-		if (_openPopupIndex == 2) RefreshGearInventory();
-	}
-
-	private void OnEquippedGearChanged(EventContext ctx, SpacetimeDB.Types.EquippedGear gear)
-	{
-		if (gear.Owner != SpacetimeNetworkManager.Instance.LocalIdentity) return;
-		if (_openPopupIndex == 2) RefreshGearInventory();
-	}
-
-	private void OnEquippedGearDeleted(EventContext ctx, SpacetimeDB.Types.EquippedGear gear)
-	{
-		if (gear.Owner != SpacetimeNetworkManager.Instance.LocalIdentity) return;
-		if (_openPopupIndex == 2) RefreshGearInventory();
-	}
-
-	private void OnChestItemChanged(EventContext ctx, SpacetimeDB.Types.ChestItem item)
-	{
-		if (_openPopupIndex == 2) RefreshGearInventory();
-	}
-
-	private void OnChestItemDeleted(EventContext ctx, SpacetimeDB.Types.ChestItem item)
-	{
-		if (_openPopupIndex == 2) RefreshGearInventory();
-	}
-
-	private void BuildGearInventoryPopup()
-	{
-		var popupLayer = GetNode<CanvasLayer>("CanvasLayerPopups");
-
-		_gearInventoryPopup = new Control();
-		_gearInventoryPopup.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		_gearInventoryPopup.Visible = false;
-		popupLayer.AddChild(_gearInventoryPopup);
-
-		var center = new CenterContainer();
-		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		_gearInventoryPopup.AddChild(center);
-
-		var panel = new PanelContainer();
-		panel.CustomMinimumSize = new Vector2(560, 520);
-		var panelStyle = new StyleBoxFlat();
-		panelStyle.BgColor = new Color(0.12f, 0.12f, 0.15f, 0.95f);
-		panelStyle.CornerRadiusTopLeft = 8;
-		panelStyle.CornerRadiusTopRight = 8;
-		panelStyle.CornerRadiusBottomLeft = 8;
-		panelStyle.CornerRadiusBottomRight = 8;
-		panelStyle.ContentMarginLeft = 16;
-		panelStyle.ContentMarginRight = 16;
-		panelStyle.ContentMarginTop = 16;
-		panelStyle.ContentMarginBottom = 16;
-		panel.AddThemeStyleboxOverride("panel", panelStyle);
-		center.AddChild(panel);
-		_modalGearInventory = panel;
-
-		var scroll = new ScrollContainer();
-		scroll.SizeFlagsVertical = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
-		panel.AddChild(scroll);
-
-		var outerVbox = new VBoxContainer();
-		outerVbox.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		outerVbox.AddThemeConstantOverride("separation", 12);
-		scroll.AddChild(outerVbox);
-
-		var header = new HBoxContainer();
-		var title = new Label();
-		title.Text = "Inventory";
-		title.AddThemeFontSizeOverride("font_size", 22);
-		title.SizeFlagsHorizontal = Control.SizeFlags.Fill | Control.SizeFlags.Expand;
-		header.AddChild(title);
-		var closeBtn = new Button();
-		closeBtn.Text = "X";
-		closeBtn.CustomMinimumSize = new Vector2(32, 32);
-		closeBtn.Pressed += CloseAllPopups;
-		header.AddChild(closeBtn);
-		outerVbox.AddChild(header);
-		outerVbox.AddChild(new HSeparator());
-
-		var equipLabel = new Label();
-		equipLabel.Text = "Equipment";
-		equipLabel.AddThemeFontSizeOverride("font_size", 18);
-		equipLabel.HorizontalAlignment = HorizontalAlignment.Center;
-		outerVbox.AddChild(equipLabel);
-
-		_equipmentSlotsContainer = new HBoxContainer();
-		_equipmentSlotsContainer.AddThemeConstantOverride("separation", 8);
-		_equipmentSlotsContainer.Alignment = BoxContainer.AlignmentMode.Center;
-		outerVbox.AddChild(_equipmentSlotsContainer);
-
-		outerVbox.AddChild(new HSeparator());
-
-		var invLabel = new Label();
-		invLabel.Text = "Backpack (15 slots)";
-		invLabel.AddThemeFontSizeOverride("font_size", 18);
-		invLabel.HorizontalAlignment = HorizontalAlignment.Center;
-		outerVbox.AddChild(invLabel);
-
-		_inventoryGrid = new GridContainer();
-		_inventoryGrid.Columns = 5;
-		_inventoryGrid.AddThemeConstantOverride("h_separation", 6);
-		_inventoryGrid.AddThemeConstantOverride("v_separation", 6);
-		outerVbox.AddChild(_inventoryGrid);
-
-		outerVbox.AddChild(new HSeparator());
-
-		_chestPanel = new VBoxContainer();
-		_chestPanel.AddThemeConstantOverride("separation", 8);
-		_chestPanel.Visible = false;
-		outerVbox.AddChild(_chestPanel);
-
-		var chestLabel = new Label();
-		chestLabel.Text = "Storage Chest";
-		chestLabel.AddThemeFontSizeOverride("font_size", 18);
-		chestLabel.HorizontalAlignment = HorizontalAlignment.Center;
-		_chestPanel.AddChild(chestLabel);
-
-		_chestGrid = new GridContainer();
-		_chestGrid.Columns = 5;
-		_chestGrid.AddThemeConstantOverride("h_separation", 6);
-		_chestGrid.AddThemeConstantOverride("v_separation", 6);
-		_chestPanel.AddChild(_chestGrid);
-	}
-
-	private static string SlotDisplayName(GearSlot slot) => slot switch
-	{
-		GearSlot.Head => "Head",
-		GearSlot.Chest => "Chest",
-		GearSlot.Arms => "Arms",
-		GearSlot.Legs => "Legs",
-		GearSlot.Feet => "Feet",
-		GearSlot.Weapon => "Weapon",
-		_ => slot.ToString()
-	};
-
-	private void RefreshGearInventory()
-	{
-		var conn = SpacetimeNetworkManager.Instance.Conn;
-		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
-
-		foreach (var child in _equipmentSlotsContainer.GetChildren())
-			child.QueueFree();
-		foreach (var child in _inventoryGrid.GetChildren())
-			child.QueueFree();
-		foreach (var child in _chestGrid.GetChildren())
-			child.QueueFree();
-
-		foreach (GearSlot slot in Enum.GetValues<GearSlot>())
-		{
-			SpacetimeDB.Types.EquippedGear? equipped = null;
-			foreach (var eq in conn.Db.EquippedGear.ByEquipOwnerSlot.Filter((Owner: localId, Slot: slot)))
-			{
-				equipped = eq;
-				break;
-			}
-
-			var slotBox = new VBoxContainer();
-			slotBox.AddThemeConstantOverride("separation", 2);
-
-			var slotLabel = new Label();
-			slotLabel.Text = SlotDisplayName(slot);
-			slotLabel.AddThemeFontSizeOverride("font_size", 12);
-			slotLabel.HorizontalAlignment = HorizontalAlignment.Center;
-			slotBox.AddChild(slotLabel);
-
-			var cell = new PanelContainer();
-			cell.CustomMinimumSize = new Vector2(80, 80);
-			var cellStyle = new StyleBoxFlat();
-			cellStyle.CornerRadiusTopLeft = 4;
-			cellStyle.CornerRadiusTopRight = 4;
-			cellStyle.CornerRadiusBottomLeft = 4;
-			cellStyle.CornerRadiusBottomRight = 4;
-
-			if (equipped is SpacetimeDB.Types.EquippedGear eq2)
-			{
-				cellStyle.BgColor = new Color(0.2f, 0.35f, 0.6f, 0.9f);
-				cell.AddThemeStyleboxOverride("panel", cellStyle);
-
-				var gearDef = conn.Db.GearDefinition.Id.Find(eq2.GearDefinitionId);
-				var gearLabel = new Label();
-				gearLabel.Text = gearDef?.Name ?? "???";
-				gearLabel.AddThemeFontSizeOverride("font_size", 11);
-				gearLabel.HorizontalAlignment = HorizontalAlignment.Center;
-				gearLabel.VerticalAlignment = VerticalAlignment.Center;
-				gearLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-				cell.AddChild(gearLabel);
-
-				var capturedSlot = slot;
-				cell.GuiInput += (InputEvent ev) =>
-				{
-					if (ev is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
-					{
-						conn.Reducers.UnequipGear(capturedSlot);
-					}
-				};
-				cell.MouseDefaultCursorShape = Control.CursorShape.PointingHand;
-				cell.TooltipText = BuildGearTooltip(conn, eq2.GearDefinitionId, eq2.CraftedBy) + "\nClick to unequip";
-			}
-			else
-			{
-				cellStyle.BgColor = new Color(0.15f, 0.15f, 0.18f, 0.9f);
-				cell.AddThemeStyleboxOverride("panel", cellStyle);
-
-				var emptyLabel = new Label();
-				emptyLabel.Text = "Empty";
-				emptyLabel.AddThemeFontSizeOverride("font_size", 11);
-				emptyLabel.AddThemeColorOverride("font_color", new Color(0.4f, 0.4f, 0.4f));
-				emptyLabel.HorizontalAlignment = HorizontalAlignment.Center;
-				emptyLabel.VerticalAlignment = VerticalAlignment.Center;
-				cell.AddChild(emptyLabel);
-			}
-
-			slotBox.AddChild(cell);
-			_equipmentSlotsContainer.AddChild(slotBox);
-		}
-
-		var invItems = new List<SpacetimeDB.Types.InventoryItem>();
-		foreach (var item in conn.Db.InventoryItem.Owner.Filter(localId))
-			invItems.Add(item);
-
-		for (int i = 0; i < 15; i++)
-		{
-			var cell = new PanelContainer();
-			cell.CustomMinimumSize = new Vector2(90, 80);
-			var cellStyle = new StyleBoxFlat();
-			cellStyle.CornerRadiusTopLeft = 4;
-			cellStyle.CornerRadiusTopRight = 4;
-			cellStyle.CornerRadiusBottomLeft = 4;
-			cellStyle.CornerRadiusBottomRight = 4;
-
-			if (i < invItems.Count)
-			{
-				var item = invItems[i];
-				cellStyle.BgColor = new Color(0.2f, 0.35f, 0.65f, 0.9f);
-				cell.AddThemeStyleboxOverride("panel", cellStyle);
-
-				var gearDef = conn.Db.GearDefinition.Id.Find(item.GearDefinitionId);
-
-				var vbox = new VBoxContainer();
-				vbox.Alignment = BoxContainer.AlignmentMode.Center;
-				var nameLabel = new Label();
-				nameLabel.Text = gearDef?.Name ?? "???";
-				nameLabel.AddThemeFontSizeOverride("font_size", 11);
-				nameLabel.HorizontalAlignment = HorizontalAlignment.Center;
-				nameLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-				vbox.AddChild(nameLabel);
-
-				if (gearDef is not null)
-				{
-					var slotTag = new Label();
-					slotTag.Text = SlotDisplayName(gearDef.Slot);
-					slotTag.AddThemeFontSizeOverride("font_size", 10);
-					slotTag.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.7f));
-					slotTag.HorizontalAlignment = HorizontalAlignment.Center;
-					vbox.AddChild(slotTag);
-				}
-
-				cell.AddChild(vbox);
-				cell.TooltipText = BuildGearTooltip(conn, item.GearDefinitionId, item.CraftedBy);
-
-				var capturedItemId = item.Id;
-				var btnRow = new HBoxContainer();
-				btnRow.Alignment = BoxContainer.AlignmentMode.Center;
-				btnRow.AddThemeConstantOverride("separation", 2);
-
-				var equipBtn = new Button();
-				equipBtn.Text = "E";
-				equipBtn.TooltipText = "Equip";
-				equipBtn.CustomMinimumSize = new Vector2(24, 20);
-				equipBtn.AddThemeFontSizeOverride("font_size", 10);
-				equipBtn.Pressed += () => conn.Reducers.EquipGear(capturedItemId);
-				btnRow.AddChild(equipBtn);
-
-				SpacetimeDB.Types.StorageChest? playerChest = null;
-				foreach (var ch in conn.Db.StorageChest.Owner.Filter(localId))
-				{
-					playerChest = ch;
-					break;
-				}
-				if (playerChest is SpacetimeDB.Types.StorageChest chest)
-				{
-					var storeBtn = new Button();
-					storeBtn.Text = "S";
-					storeBtn.TooltipText = "Store in chest";
-					storeBtn.CustomMinimumSize = new Vector2(24, 20);
-					storeBtn.AddThemeFontSizeOverride("font_size", 10);
-					var capturedChestId = chest.Id;
-					storeBtn.Pressed += () => conn.Reducers.TransferToChest(capturedItemId, capturedChestId);
-					btnRow.AddChild(storeBtn);
-				}
-
-				vbox.AddChild(btnRow);
-			}
-			else
-			{
-				cellStyle.BgColor = new Color(0.12f, 0.12f, 0.14f, 0.7f);
-				cell.AddThemeStyleboxOverride("panel", cellStyle);
-
-				var emptyLabel = new Label();
-				emptyLabel.Text = "";
-				cell.AddChild(emptyLabel);
-			}
-
-			_inventoryGrid.AddChild(cell);
-		}
-
-		SpacetimeDB.Types.StorageChest? ownedChest = null;
-		foreach (var ch in conn.Db.StorageChest.Owner.Filter(localId))
-		{
-			ownedChest = ch;
-			break;
-		}
-
-		if (ownedChest is SpacetimeDB.Types.StorageChest myChest)
-		{
-			_chestPanel.Visible = true;
-
-			var chestItems = new List<SpacetimeDB.Types.ChestItem>();
-			foreach (var ci in conn.Db.ChestItem.ChestId.Filter(myChest.Id))
-				chestItems.Add(ci);
-
-			for (int i = 0; i < myChest.Capacity; i++)
-			{
-				var cell = new PanelContainer();
-				cell.CustomMinimumSize = new Vector2(90, 80);
-				var cellStyle = new StyleBoxFlat();
-				cellStyle.CornerRadiusTopLeft = 4;
-				cellStyle.CornerRadiusTopRight = 4;
-				cellStyle.CornerRadiusBottomLeft = 4;
-				cellStyle.CornerRadiusBottomRight = 4;
-
-				if (i < chestItems.Count)
-				{
-					var ci = chestItems[i];
-					cellStyle.BgColor = new Color(0.5f, 0.35f, 0.15f, 0.9f);
-					cell.AddThemeStyleboxOverride("panel", cellStyle);
-
-					var gearDef = conn.Db.GearDefinition.Id.Find(ci.GearDefinitionId);
-					var vbox = new VBoxContainer();
-					vbox.Alignment = BoxContainer.AlignmentMode.Center;
-					var nameLabel = new Label();
-					nameLabel.Text = gearDef?.Name ?? "???";
-					nameLabel.AddThemeFontSizeOverride("font_size", 11);
-					nameLabel.HorizontalAlignment = HorizontalAlignment.Center;
-					nameLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-					vbox.AddChild(nameLabel);
-					cell.AddChild(vbox);
-
-					cell.TooltipText = BuildGearTooltip(conn, ci.GearDefinitionId, ci.CraftedBy) + "\nClick to retrieve";
-
-					var capturedCiId = ci.Id;
-					cell.GuiInput += (InputEvent ev) =>
-					{
-						if (ev is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
-							conn.Reducers.TransferFromChest(capturedCiId);
-					};
-					cell.MouseDefaultCursorShape = Control.CursorShape.PointingHand;
-				}
-				else
-				{
-					cellStyle.BgColor = new Color(0.12f, 0.12f, 0.14f, 0.7f);
-					cell.AddThemeStyleboxOverride("panel", cellStyle);
-				}
-
-				_chestGrid.AddChild(cell);
-			}
-		}
-		else
-		{
-			_chestPanel.Visible = false;
-		}
-	}
-
-	private static string BuildGearTooltip(DbConnection conn, ulong gearDefId, SpacetimeDB.Identity craftedBy)
-	{
-		var def = conn.Db.GearDefinition.Id.Find(gearDefId);
-		if (def is null) return "Unknown gear";
-
-		var lines = new List<string> { def.Name, $"Slot: {SlotDisplayName(def.Slot)}" };
-
-		foreach (var bonus in def.StatBonuses)
-			lines.Add($"+{bonus.Value} {bonus.Stat}");
-		if (def.HealthBonus > 0)
-			lines.Add($"+{def.HealthBonus} Max Health");
-		if (def.SetName is not null)
-			lines.Add($"Set: {def.SetName}");
-
-		var crafter = conn.Db.Player.Identity.Find(craftedBy);
-		lines.Add($"Crafted by: {crafter?.DisplayName ?? "Unknown"}");
-
-		return string.Join("\n", lines);
 	}
 
 	private void SpawnFloatingLoot(Vector2 worldPos, string text)
