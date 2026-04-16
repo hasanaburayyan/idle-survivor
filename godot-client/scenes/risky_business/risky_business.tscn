@@ -1,0 +1,166 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/risky_business/RiskyBusinessScene.cs" id="1_script"]
+
+[node name="RiskyBusinessScene" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="CanvasLayerHud" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="HudMargin" type="MarginContainer" parent="CanvasLayerHud"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="TopCenter" type="VBoxContainer" parent="CanvasLayerHud/HudMargin"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="TimerLabel" type="Label" parent="CanvasLayerHud/HudMargin/TopCenter" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+text = "Time: 60"
+
+[node name="LootLabel" type="Label" parent="CanvasLayerHud/HudMargin/TopCenter" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+horizontal_alignment = 1
+text = "Loot: 0"
+
+[node name="MultiplierLabel" type="Label" parent="CanvasLayerHud/HudMargin/TopCenter" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+text = "Multiplier: x1.0"
+
+[node name="BottomCenter" type="VBoxContainer" parent="CanvasLayerHud/HudMargin"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 8
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="RecoveredLootLabel" type="Label" parent="CanvasLayerHud/HudMargin/BottomCenter" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+text = "Recovered Loot: 0"
+
+[node name="ButtonRow" type="HBoxContainer" parent="CanvasLayerHud/HudMargin/BottomCenter"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="LootSafelyButton" type="Button" parent="CanvasLayerHud/HudMargin/BottomCenter/ButtonRow" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(180, 48)
+theme_override_font_sizes/font_size = 18
+text = "Loot Safely"
+
+[node name="GreedButton" type="Button" parent="CanvasLayerHud/HudMargin/BottomCenter/ButtonRow" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(180, 48)
+theme_override_font_sizes/font_size = 18
+text = "Greed for Loot"
+
+[node name="SecureButton" type="Button" parent="CanvasLayerHud/HudMargin/BottomCenter/ButtonRow" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(180, 48)
+theme_override_font_sizes/font_size = 18
+text = "Secure the Loot"
+
+[node name="CanvasLayerWorld" type="CanvasLayer" parent="."]
+layer = 0
+
+[node name="SubViewportContainer" type="SubViewportContainer" parent="CanvasLayerWorld"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stretch = true
+
+[node name="SubViewport" type="SubViewport" parent="CanvasLayerWorld/SubViewportContainer" unique_id=true]
+unique_name_in_owner = true
+handle_input_locally = false
+physics_object_picking = true
+size = Vector2i(1920, 1080)
+render_target_update_mode = 4
+
+[node name="WorldRoot" type="Node2D" parent="CanvasLayerWorld/SubViewportContainer/SubViewport" unique_id=true]
+unique_name_in_owner = true
+
+[node name="ArenaBackground" type="ColorRect" parent="CanvasLayerWorld/SubViewportContainer/SubViewport/WorldRoot"]
+offset_right = 800.0
+offset_bottom = 400.0
+color = Color(0.12, 0.1, 0.18, 1)
+
+[node name="ArenaBorder" type="Line2D" parent="CanvasLayerWorld/SubViewportContainer/SubViewport/WorldRoot"]
+points = PackedVector2Array(0, 0, 800, 0, 800, 400, 0, 400, 0, 0)
+width = 3.0
+default_color = Color(0.5, 0.4, 0.6, 1)
+
+[node name="Camera2D" type="Camera2D" parent="CanvasLayerWorld/SubViewportContainer/SubViewport/WorldRoot" unique_id=true]
+unique_name_in_owner = true
+position = Vector2(400, 200)
+zoom = Vector2(2.0, 2.0)
+
+[node name="ResultsOverlay" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="ResultsPanel" type="PanelContainer" parent="ResultsOverlay" unique_id=true]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -120.0
+offset_right = 200.0
+offset_bottom = 120.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ResultsVBox" type="VBoxContainer" parent="ResultsOverlay/ResultsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ResultTitle" type="Label" parent="ResultsOverlay/ResultsPanel/ResultsVBox" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+text = "Risky Business Over"
+
+[node name="ResultDetails" type="Label" parent="ResultsOverlay/ResultsPanel/ResultsVBox" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1
+text = ""
+
+[node name="ReturnButton" type="Button" parent="ResultsOverlay/ResultsPanel/ResultsVBox" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Return to Shelter"

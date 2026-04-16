@@ -26,6 +26,7 @@ public partial class Shelter : Node2D
 	private PackedScene _activityScene = GD.Load<PackedScene>("uid://bjckoiwufesye");
 	private PackedScene _zombieScene = GD.Load<PackedScene>("uid://cklegshx4bjbl");
 	private PackedScene _adventureScene = GD.Load<PackedScene>("res://scenes/adventure/adventure.tscn");
+	private PackedScene _riskyBusinessScene = GD.Load<PackedScene>("res://scenes/risky_business/risky_business.tscn");
 
 	private Dictionary<SpacetimeDB.Identity, Player> _guildMemberSprites = new();
 	private bool _inGuildHall;
@@ -252,6 +253,7 @@ public partial class Shelter : Node2D
 		conn.Db.ChestItem.OnInsert += OnChestItemChanged;
 		conn.Db.ChestItem.OnDelete += OnChestItemDeleted;
 		conn.Db.AdventureParticipant.OnInsert += OnAdventureParticipantInsert;
+		conn.Db.RiskyBusinessParticipant.OnInsert += OnRiskyBusinessParticipantInsert;
 
 		foreach (var ps in conn.Db.PlayerStructure.Owner.Filter(SpacetimeNetworkManager.Instance.LocalIdentity))
 			SpawnStructureNode(ps);
@@ -1251,6 +1253,17 @@ public partial class Shelter : Node2D
 	private void DeferredTransitionToAdventure()
 	{
 		GetTree().ChangeSceneToPacked(_adventureScene);
+	}
+
+	private void OnRiskyBusinessParticipantInsert(EventContext ctx, SpacetimeDB.Types.RiskyBusinessParticipant participant)
+	{
+		if (participant.PlayerId != SpacetimeNetworkManager.Instance.LocalIdentity) return;
+		CallDeferred(nameof(DeferredTransitionToRiskyBusiness));
+	}
+
+	private void DeferredTransitionToRiskyBusiness()
+	{
+		GetTree().ChangeSceneToPacked(_riskyBusinessScene);
 	}
 
 	private static readonly Vector2 StructureSize = new(64, 64);

@@ -32,6 +32,7 @@ public static partial class Module
         ctx.Db.Player.Identity.Update(player);
 
         HandleAdventureDisconnect(ctx, ctx.Sender);
+        HandleRiskyBusinessDisconnect(ctx, ctx.Sender);
         RemoveAllScheduledEventsForParticipant(ctx, ctx.Sender);
     }
 

@@ -19,7 +19,8 @@ public partial class PartyPanel : PanelContainer
 	private VBoxContainer _invitesList;
 	private Button _createPartyButton;
 	private Button _leaveButton;
-	private Button _startAdventureButton;
+	private Button _multiplayerActivitiesButton;
+	private PopupMenu _activitiesMenu;
 
 	public override void _Ready()
 	{
@@ -108,12 +109,18 @@ public partial class PartyPanel : PanelContainer
 
 		_inPartyContainer.AddChild(new HSeparator());
 
-		_startAdventureButton = new Button();
-		_startAdventureButton.Text = "Start Adventure";
-		_startAdventureButton.CustomMinimumSize = new Vector2(0, 30);
-		_startAdventureButton.Visible = false;
-		_startAdventureButton.Pressed += OnStartAdventurePressed;
-		_inPartyContainer.AddChild(_startAdventureButton);
+		_multiplayerActivitiesButton = new Button();
+		_multiplayerActivitiesButton.Text = "Multiplayer Activities";
+		_multiplayerActivitiesButton.CustomMinimumSize = new Vector2(0, 30);
+		_multiplayerActivitiesButton.Visible = false;
+		_multiplayerActivitiesButton.Pressed += OnMultiplayerActivitiesPressed;
+		_inPartyContainer.AddChild(_multiplayerActivitiesButton);
+
+		_activitiesMenu = new PopupMenu();
+		_activitiesMenu.AddItem("Adventure", 0);
+		_activitiesMenu.AddItem("Risky Business", 1);
+		_activitiesMenu.IdPressed += OnActivityMenuItemSelected;
+		AddChild(_activitiesMenu);
 
 		_membersList = new VBoxContainer();
 		_membersList.AddThemeConstantOverride("separation", 2);
@@ -206,7 +213,7 @@ public partial class PartyPanel : PanelContainer
 		bool isLeader = party.LeaderId == localId;
 		_headerLabel.Text = $"Party ({members.Count}/4)";
 		_leaveButton.Text = isLeader ? "Disband" : "Leave";
-		_startAdventureButton.Visible = isLeader;
+		_multiplayerActivitiesButton.Visible = isLeader;
 
 		foreach (var child in _membersList.GetChildren())
 			child.QueueFree();
@@ -326,8 +333,27 @@ public partial class PartyPanel : PanelContainer
 		CallDeferred(nameof(DeferredRefresh));
 	}
 
-	private void OnStartAdventurePressed()
+	private void OnMultiplayerActivitiesPressed()
 	{
-		SpacetimeNetworkManager.Instance.Conn.Reducers.StartAdventure();
+		var buttonRect = _multiplayerActivitiesButton.GetGlobalRect();
+		_activitiesMenu.Position = new Vector2I(
+			(int)buttonRect.Position.X,
+			(int)buttonRect.End.Y
+		);
+		_activitiesMenu.ResetSize();
+		_activitiesMenu.Popup();
+	}
+
+	private void OnActivityMenuItemSelected(long id)
+	{
+		switch (id)
+		{
+			case 0:
+				SpacetimeNetworkManager.Instance.Conn.Reducers.StartAdventure();
+				break;
+			case 1:
+				SpacetimeNetworkManager.Instance.Conn.Reducers.StartRiskyBusiness();
+				break;
+		}
 	}
 }
