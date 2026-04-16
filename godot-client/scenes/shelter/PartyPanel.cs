@@ -19,6 +19,7 @@ public partial class PartyPanel : PanelContainer
 	private VBoxContainer _invitesList;
 	private Button _createPartyButton;
 	private Button _leaveButton;
+	private Button _startAdventureButton;
 
 	public override void _Ready()
 	{
@@ -106,6 +107,13 @@ public partial class PartyPanel : PanelContainer
 		_inPartyContainer.AddChild(headerRow);
 
 		_inPartyContainer.AddChild(new HSeparator());
+
+		_startAdventureButton = new Button();
+		_startAdventureButton.Text = "Start Adventure";
+		_startAdventureButton.CustomMinimumSize = new Vector2(0, 30);
+		_startAdventureButton.Visible = false;
+		_startAdventureButton.Pressed += OnStartAdventurePressed;
+		_inPartyContainer.AddChild(_startAdventureButton);
 
 		_membersList = new VBoxContainer();
 		_membersList.AddThemeConstantOverride("separation", 2);
@@ -198,6 +206,7 @@ public partial class PartyPanel : PanelContainer
 		bool isLeader = party.LeaderId == localId;
 		_headerLabel.Text = $"Party ({members.Count}/4)";
 		_leaveButton.Text = isLeader ? "Disband" : "Leave";
+		_startAdventureButton.Visible = isLeader;
 
 		foreach (var child in _membersList.GetChildren())
 			child.QueueFree();
@@ -315,5 +324,10 @@ public partial class PartyPanel : PanelContainer
 			conn.Reducers.LeaveParty();
 
 		CallDeferred(nameof(DeferredRefresh));
+	}
+
+	private void OnStartAdventurePressed()
+	{
+		SpacetimeNetworkManager.Instance.Conn.Reducers.StartAdventure();
 	}
 }

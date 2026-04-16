@@ -1,0 +1,134 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/adventure/AdventureScene.cs" id="1_script"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_arena"]
+size = Vector2(2000, 1500)
+
+[node name="AdventureScene" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="CanvasLayerHud" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="HudMargin" type="MarginContainer" parent="CanvasLayerHud"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="TopLeft" type="VBoxContainer" parent="CanvasLayerHud/HudMargin"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="WaveLabel" type="Label" parent="CanvasLayerHud/HudMargin/TopLeft" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Wave 0"
+
+[node name="HealthBar" type="ProgressBar" parent="CanvasLayerHud/HudMargin/TopLeft" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(200, 24)
+value = 100.0
+show_percentage = false
+
+[node name="HealthLabel" type="Label" parent="CanvasLayerHud/HudMargin/TopLeft" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "HP: 10 / 10"
+
+[node name="ZombiesLabel" type="Label" parent="CanvasLayerHud/HudMargin/TopLeft" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Zombies: 0"
+
+[node name="CanvasLayerWorld" type="CanvasLayer" parent="."]
+layer = 0
+
+[node name="SubViewportContainer" type="SubViewportContainer" parent="CanvasLayerWorld"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stretch = true
+
+[node name="SubViewport" type="SubViewport" parent="CanvasLayerWorld/SubViewportContainer" unique_id=true]
+unique_name_in_owner = true
+handle_input_locally = false
+physics_object_picking = true
+size = Vector2i(1920, 1080)
+render_target_update_mode = 4
+
+[node name="WorldRoot" type="Node2D" parent="CanvasLayerWorld/SubViewportContainer/SubViewport" unique_id=true]
+unique_name_in_owner = true
+
+[node name="ArenaBackground" type="ColorRect" parent="CanvasLayerWorld/SubViewportContainer/SubViewport/WorldRoot"]
+offset_right = 2000.0
+offset_bottom = 1500.0
+color = Color(0.15, 0.18, 0.12, 1)
+
+[node name="ArenaBorder" type="Line2D" parent="CanvasLayerWorld/SubViewportContainer/SubViewport/WorldRoot"]
+points = PackedVector2Array(0, 0, 2000, 0, 2000, 1500, 0, 1500, 0, 0)
+width = 4.0
+default_color = Color(0.4, 0.4, 0.4, 1)
+
+[node name="Camera2D" type="Camera2D" parent="CanvasLayerWorld/SubViewportContainer/SubViewport/WorldRoot" unique_id=true]
+unique_name_in_owner = true
+position = Vector2(1000, 750)
+zoom = Vector2(1.5, 1.5)
+
+[node name="ResultsOverlay" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="ResultsPanel" type="PanelContainer" parent="ResultsOverlay" unique_id=true]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -120.0
+offset_right = 200.0
+offset_bottom = 120.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ResultsVBox" type="VBoxContainer" parent="ResultsOverlay/ResultsPanel" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ResultTitle" type="Label" parent="ResultsOverlay/ResultsPanel/ResultsVBox" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+text = "Adventure Over"
+
+[node name="ResultDetails" type="Label" parent="ResultsOverlay/ResultsPanel/ResultsVBox" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1
+text = ""
+
+[node name="ReturnButton" type="Button" parent="ResultsOverlay/ResultsPanel/ResultsVBox" unique_id=true]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Return to Shelter"

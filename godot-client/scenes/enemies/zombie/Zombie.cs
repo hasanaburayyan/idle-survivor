@@ -16,8 +16,12 @@ public partial class Zombie : CharacterBody2D
 	[Signal]
 	public delegate void KilledEventHandler();
 
+	[Signal]
+	public delegate void AdventureAttackRequestedEventHandler(ulong zombieId);
+
 	public TileMapLayer BuildingLayer { get; set; }
 	public bool IsDying => _state == SeekState.Dying;
+	public ulong AdventureZombieId { get; set; }
 
 	private AnimatedSprite2D _sprite;
 	private RandomNumberGenerator _rng = new();
@@ -38,7 +42,14 @@ public partial class Zombie : CharacterBody2D
 	{
 		if (@event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
 		{
-			Die();
+			if (AdventureZombieId != 0)
+			{
+				EmitSignal(SignalName.AdventureAttackRequested, AdventureZombieId);
+			}
+			else
+			{
+				Die();
+			}
 			viewport.SetInputAsHandled();
 		}
 	}
@@ -70,6 +81,9 @@ public partial class Zombie : CharacterBody2D
 	public override void _PhysicsProcess(double delta)
 	{
 		if (_state == SeekState.Dying)
+			return;
+
+		if (AdventureZombieId != 0)
 			return;
 
 		_stateTimer -= (float)delta;

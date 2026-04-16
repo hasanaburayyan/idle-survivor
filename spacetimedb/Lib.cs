@@ -31,6 +31,7 @@ public static partial class Module
         player.Online = false;
         ctx.Db.Player.Identity.Update(player);
 
+        HandleAdventureDisconnect(ctx, ctx.Sender);
         RemoveAllScheduledEventsForParticipant(ctx, ctx.Sender);
     }
 

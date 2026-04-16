@@ -34,6 +34,7 @@ public partial class Player : CharacterBody2D
 	public bool IsLocal { get; set; }
 	public bool AutoKillEnabled { get; set; }
 	public float KillIntervalSeconds { get; set; } = 2.0f;
+	public bool AdventureMode { get; set; }
 
 	public Label DisplayNameLabel;
 	public Label ActivityLabel;
@@ -189,6 +190,23 @@ public partial class Player : CharacterBody2D
 	{
 		if (!_animationsLoaded) return;
 
+		if (AdventureMode)
+		{
+			if (IsLocal && AutoKillEnabled)
+			{
+				_attackTimer -= (float)delta;
+				if (_attackTimer <= 0f)
+				{
+					_attackTimer = KillIntervalSeconds;
+					_state = AnimState.Action;
+					string[] attacks = { "attack1", "attack2", "attack3" };
+					PlayAnim(attacks[_rng.RandiRange(0, attacks.Length - 1)]);
+					EmitSignal(SignalName.KillRequested);
+				}
+			}
+			return;
+		}
+
 		_stateTimer -= (float)delta;
 
 		if (IsLocal && AutoKillEnabled)
@@ -291,6 +309,20 @@ public partial class Player : CharacterBody2D
 	{
 		if (_sprite.SpriteFrames != null && _sprite.SpriteFrames.HasAnimation(name))
 			_sprite.Play(name);
+	}
+
+	public void SetAdventureDirection(Vector2 dir)
+	{
+		if (!_animationsLoaded || !AdventureMode) return;
+		if (dir.LengthSquared() > 0.01f)
+		{
+			_sprite.FlipH = dir.X < 0f;
+			PlayAnim("run");
+		}
+		else
+		{
+			PlayAnim("idle");
+		}
 	}
 
 	public new void SetName(string name)

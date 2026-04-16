@@ -25,6 +25,7 @@ public partial class Shelter : Node2D
 	private PackedScene _resourceTrackingScene = GD.Load<PackedScene>("uid://bmw2ixd8nj1t8");
 	private PackedScene _activityScene = GD.Load<PackedScene>("uid://bjckoiwufesye");
 	private PackedScene _zombieScene = GD.Load<PackedScene>("uid://cklegshx4bjbl");
+	private PackedScene _adventureScene = GD.Load<PackedScene>("res://scenes/adventure/adventure.tscn");
 
 	private Dictionary<SpacetimeDB.Identity, Player> _guildMemberSprites = new();
 	private bool _inGuildHall;
@@ -250,6 +251,7 @@ public partial class Shelter : Node2D
 		conn.Db.EquippedGear.OnDelete += OnEquippedGearDeleted;
 		conn.Db.ChestItem.OnInsert += OnChestItemChanged;
 		conn.Db.ChestItem.OnDelete += OnChestItemDeleted;
+		conn.Db.AdventureParticipant.OnInsert += OnAdventureParticipantInsert;
 
 		foreach (var ps in conn.Db.PlayerStructure.Owner.Filter(SpacetimeNetworkManager.Instance.LocalIdentity))
 			SpawnStructureNode(ps);
@@ -1238,6 +1240,17 @@ public partial class Shelter : Node2D
 
 		SpawnFloatingLoot(pos, $"+{loot.Amount} {loot.Resource}");
 		SpacetimeNetworkManager.Instance.Conn.Reducers.AckKillLoot(loot.Id);
+	}
+
+	private void OnAdventureParticipantInsert(EventContext ctx, SpacetimeDB.Types.AdventureParticipant participant)
+	{
+		if (participant.PlayerId != SpacetimeNetworkManager.Instance.LocalIdentity) return;
+		CallDeferred(nameof(DeferredTransitionToAdventure));
+	}
+
+	private void DeferredTransitionToAdventure()
+	{
+		GetTree().ChangeSceneToPacked(_adventureScene);
 	}
 
 	private static readonly Vector2 StructureSize = new(64, 64);
