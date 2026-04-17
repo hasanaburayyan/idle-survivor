@@ -62,6 +62,7 @@ public partial class Shelter : Node2D
 	private Button _btnSystem;
 
 	private GearInventoryManager _gearInventoryManager;
+	private UpgradesManager _upgradesManager;
 
 	private int? _openPopupIndex;
 
@@ -136,6 +137,18 @@ public partial class Shelter : Node2D
 		_gearInventoryManager.Init(GetNode<CanvasLayer>("CanvasLayerPopups"));
 		_gearInventoryManager.CloseRequested += CloseAllPopups;
 
+		_upgradesManager = new UpgradesManager();
+		AddChild(_upgradesManager);
+		_upgradesManager.Init(GetNode<CanvasLayer>("CanvasLayerPopups"));
+		_upgradesManager.CloseRequested += CloseAllPopups;
+
+		var bottomMenuBar = GetNode<HBoxContainer>("%BottomMenuBar");
+		var upgradesMenuButton = new Button();
+		upgradesMenuButton.Text = "Upgrades";
+		upgradesMenuButton.CustomMinimumSize = new Vector2(120, 36);
+		upgradesMenuButton.Pressed += () => TogglePopup(7);
+		bottomMenuBar.AddChild(upgradesMenuButton);
+
 		_btnSkills.Visible = false;
 
 		_levelLabel = GetNode<Label>("%LevelLabel");
@@ -148,6 +161,15 @@ public partial class Shelter : Node2D
 		{
 			SpacetimeNetworkManager.Instance?.Conn?.Reducers.DebugLevelUp();
 		};
+
+		var debugMoneyBtn = new Button();
+		debugMoneyBtn.Text = "+1k$";
+		debugMoneyBtn.AddThemeFontSizeOverride("font_size", 11);
+		debugMoneyBtn.Pressed += () =>
+		{
+			SpacetimeNetworkManager.Instance?.Conn?.Reducers.DebugGrantMoney();
+		};
+		debugLevelUpBtn.GetParent().AddChild(debugMoneyBtn);
 
 		_skillsManager = new SkillsManager();
 		AddChild(_skillsManager);
@@ -226,6 +248,10 @@ public partial class Shelter : Node2D
 		conn.Db.PlayerLevel.OnInsert += OnPlayerLevelChange;
 		conn.Db.PlayerLevel.OnUpdate += OnPlayerLevelUpdate;
 		conn.Db.PlayerSkill.OnInsert += OnPlayerSkillInsert;
+
+		conn.Db.PlayerUpgrade.OnInsert += OnPlayerUpgradeChanged;
+		conn.Db.PlayerUpgrade.OnUpdate += OnPlayerUpgradeUpdated;
+		ApplyUpgradeEffects();
 
 		_guildSocialPanel.GuildSessionChanged += _guildMemberManager.OnGuildSessionChanged;
 
@@ -311,6 +337,7 @@ public partial class Shelter : Node2D
 		4 => _modalSkills,
 		5 => _modalSystem,
 		6 => _structureCraftPopupManager.ModalPanel,
+		7 => _upgradesManager.ModalPanel,
 		_ => null,
 	};
 
@@ -348,6 +375,11 @@ public partial class Shelter : Node2D
 				OpenPopup(3);
 			GetViewport().SetInputAsHandled();
 		}
+		else if (@event is InputEventKey keyEvent && keyEvent.Pressed && !keyEvent.Echo && keyEvent.Keycode == Key.U)
+		{
+			TogglePopup(7);
+			GetViewport().SetInputAsHandled();
+		}
 	}
 
 	private void TogglePopup(int index)
@@ -369,6 +401,7 @@ public partial class Shelter : Node2D
 		_skillsPopup.Visible = index == 4;
 		_systemPopup.Visible = index == 5;
 		_structureCraftPopupManager.Popup.Visible = index == 6;
+		_upgradesManager.Popup.Visible = index == 7;
 
 		switch (index)
 		{
@@ -388,6 +421,9 @@ public partial class Shelter : Node2D
 			case 6:
 				_structureCraftPopupManager.Refresh();
 				break;
+			case 7:
+				_upgradesManager.SetOpen(true);
+				break;
 		}
 	}
 
@@ -404,6 +440,8 @@ public partial class Shelter : Node2D
 		_systemPopup.Visible = false;
 		_structureCraftPopupManager.Popup.Visible = false;
 		_structureCraftPopupManager.Close();
+		_upgradesManager.Popup.Visible = false;
+		_upgradesManager.SetOpen(false);
 	}
 
 	private void OnViewportSizeChanged()
@@ -821,6 +859,51 @@ public partial class Shelter : Node2D
 			RefreshLocationUI();
 	}
 
+	private void OnPlayerUpgradeChanged(EventContext ctx, SpacetimeDB.Types.PlayerUpgrade row)
+	{
+		if (row.Owner == SpacetimeNetworkManager.Instance.LocalIdentity)
+			ApplyUpgradeEffects();
+	}
+
+	private void OnPlayerUpgradeUpdated(EventContext ctx, SpacetimeDB.Types.PlayerUpgrade oldRow, SpacetimeDB.Types.PlayerUpgrade newRow)
+	{
+		if (newRow.Owner == SpacetimeNetworkManager.Instance.LocalIdentity)
+			ApplyUpgradeEffects();
+	}
+
+	private void ApplyUpgradeEffects()
+	{
+		var conn = SpacetimeNetworkManager.Instance?.Conn;
+		if (conn is null) return;
+		var localId = SpacetimeNetworkManager.Instance.LocalIdentity;
+
+		uint attackSpeedLvl = 0;
+		uint killsPerClickLvl = 0;
+		uint densityLvl = 0;
+
+		foreach (var upg in conn.Db.PlayerUpgrade.Owner.Filter(localId))
+		{
+			switch (upg.Type)
+			{
+				case UpgradeType.AttackSpeed:    attackSpeedLvl = upg.Level; break;
+				case UpgradeType.KillsPerClick:  killsPerClickLvl = upg.Level; break;
+				case UpgradeType.ZombieDensity:  densityLvl = upg.Level; break;
+			}
+		}
+
+		if (_localPlayerNode != null)
+		{
+			float newInterval = (float)Math.Max(2.0 * Math.Pow(0.95, attackSpeedLvl), 0.5);
+			_localPlayerNode.KillIntervalSeconds = newInterval;
+		}
+
+		if (_zombieManager != null)
+		{
+			_zombieManager.SetKillsPerClickBonus(killsPerClickLvl);
+			_zombieManager.SetDensityLevel(densityLvl);
+		}
+	}
+
 	private void OnResourceTrackerInsert(EventContext ctx, SpacetimeDB.Types.ResourceTracker tracker)
 	{
 		if (tracker.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
@@ -895,8 +978,15 @@ public partial class Shelter : Node2D
 		OpenPopup(6);
 	}
 
+	private int _activeLootLabels = 0;
+	private const int MaxActiveLootLabels = 24;
+
 	private void SpawnFloatingLoot(Vector2 worldPos, string text)
 	{
+		if (_activeLootLabels >= MaxActiveLootLabels)
+			return;
+		_activeLootLabels++;
+
 		var label = new Label();
 		label.Text = text;
 		label.Position = worldPos - new Vector2(40, 30);
@@ -912,6 +1002,10 @@ public partial class Shelter : Node2D
 		tween.TweenProperty(label, "position:y", worldPos.Y - 80, 1.0);
 		tween.TweenProperty(label, "modulate:a", 0.0f, 1.0);
 		tween.SetParallel(false);
-		tween.TweenCallback(Callable.From(label.QueueFree));
+		tween.TweenCallback(Callable.From(() =>
+		{
+			label.QueueFree();
+			_activeLootLabels--;
+		}));
 	}
 }

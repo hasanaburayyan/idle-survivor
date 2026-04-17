@@ -100,6 +100,18 @@ public static partial class Module {
             RequiredSkillId = metalSkillId,
             Level = 1
         });
+
+        if (FindGearDefIdByName(ctx, "Tattered Vest") is ulong tatteredVestId)
+        {
+            ctx.Db.InventoryItem.Insert(new InventoryItem
+            {
+                Id = 0,
+                Owner = ctx.Sender,
+                GearDefinitionId = tatteredVestId,
+                CraftedBy = ctx.Sender,
+                CraftedAt = ctx.Timestamp
+            });
+        }
     }
 
     [SpacetimeDB.Reducer]
@@ -124,7 +136,8 @@ public static partial class Module {
         var values = Enum.GetValues<ResourceType>();
         var resourceType = values[random.Next(values.Length)];
         var level = GetActivityLevel(ctx, ctx.Sender, ActivityType.Scavenge);
-        var amount = GetScavengeAmountForResource(ctx, ctx.Sender, resourceType) + level;
+        var lootBonus = (ulong)GetUpgradeLevel(ctx, ctx.Sender, UpgradeType.LootMultiplier);
+        var amount = GetScavengeAmountForResource(ctx, ctx.Sender, resourceType) + level + lootBonus;
         AddResourceToPlayer(ctx, ctx.Sender, resourceType, amount);
 
         ctx.Db.KillLoot.Insert(new KillLoot

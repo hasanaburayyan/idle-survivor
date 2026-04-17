@@ -91,16 +91,36 @@ public static partial class Module
         switch (type)
         {
             case ActivityType.Scavenge:
-                Add(ResourceType.Food, 5);
-                Add(ResourceType.Money, 5);
-                Add(ResourceType.Wood, 5);
-                Add(ResourceType.Metal, 5);
-                Add(ResourceType.Fabric, 5);
-                Add(ResourceType.Parts, 5);
+                // Early-game ramp: widen the cost list gradually so the first upgrade
+                // is reachable in ~60s and the coupon-collector wall kicks in past L4.
+                if (currentLevel <= 1)
+                {
+                    Add(ResourceType.Food, 5);
+                }
+                else if (currentLevel == 2)
+                {
+                    Add(ResourceType.Food, 10);
+                    Add(ResourceType.Money, 10);
+                }
+                else if (currentLevel == 3)
+                {
+                    Add(ResourceType.Food, 15);
+                    Add(ResourceType.Money, 15);
+                    Add(ResourceType.Wood, 10);
+                }
+                else
+                {
+                    Add(ResourceType.Food, 5);
+                    Add(ResourceType.Money, 5);
+                    Add(ResourceType.Wood, 5);
+                    Add(ResourceType.Metal, 5);
+                    Add(ResourceType.Fabric, 5);
+                    Add(ResourceType.Parts, 5);
+                }
                 break;
             case ActivityType.ChopWood:
-                Add(ResourceType.Food, 8);
-                Add(ResourceType.Metal, 4);
+                Add(ResourceType.Food, 5);
+                Add(ResourceType.Wood, 3);
                 break;
             case ActivityType.Mine:
                 Add(ResourceType.Wood, 8);
@@ -223,8 +243,14 @@ public static partial class Module
         _ => StatType.Perception
     };
 
-    private static ulong GetScavengeAmountForResource(ReducerContext ctx, Identity participant, ResourceType resourceType) =>
-        (ulong)GetStat(ctx, participant, GetScavengeStat(resourceType));
+    private static ulong GetScavengeAmountForResource(ReducerContext ctx, Identity participant, ResourceType resourceType)
+    {
+        var statValue = (ulong)GetStat(ctx, participant, GetScavengeStat(resourceType));
+        // Wit → Money channel is doubled so Money flows fast enough to fuel the upgrade shop.
+        if (resourceType == ResourceType.Money)
+            statValue *= 2;
+        return statValue;
+    }
 
     public static void EnsureActivityLevels(ReducerContext ctx, Identity participant)
     {
@@ -244,7 +270,8 @@ public static partial class Module
         var resourceType = values[random.Next(values.Length)];
 
         var level = GetActivityLevel(ctx, participant, ActivityType.Scavenge);
-        var amount = GetScavengeAmountForResource(ctx, participant, resourceType) + level;
+        var lootBonus = (ulong)GetUpgradeLevel(ctx, participant, UpgradeType.LootMultiplier);
+        var amount = GetScavengeAmountForResource(ctx, participant, resourceType) + level + lootBonus;
         AddResourceToPlayer(ctx, participant, resourceType, amount);
 
         GrantExperience(ctx, participant, 1);

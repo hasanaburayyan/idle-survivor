@@ -115,7 +115,7 @@ public static partial class Module
             Cost = new List<ActivityCost>
             {
                 new ActivityCost { Type = ResourceType.Wood, Amount = 20 },
-                new ActivityCost { Type = ResourceType.Parts, Amount = 10 }
+                new ActivityCost { Type = ResourceType.Parts, Amount = 5 }
             },
             IndoorOnly = true
         });
@@ -168,8 +168,8 @@ public static partial class Module
             Name = "Craft Parts",
             InputCost = new List<ActivityCost>
             {
-                new ActivityCost { Type = ResourceType.Metal, Amount = 5 },
-                new ActivityCost { Type = ResourceType.Wood, Amount = 3 }
+                new ActivityCost { Type = ResourceType.Wood, Amount = 3 },
+                new ActivityCost { Type = ResourceType.Fabric, Amount = 3 }
             },
             OutputResource = ResourceType.Parts,
             OutputAmount = 2,
@@ -268,7 +268,7 @@ public static partial class Module
             Description = "Unlocks the Chop Wood activity.",
             Cost = 1,
             RequiredLevel = null,
-            PrerequisiteSkillId = autoKill.Id,
+            PrerequisiteSkillId = null,
             PrerequisiteSkillId2 = null
         });
 
@@ -279,7 +279,7 @@ public static partial class Module
             Description = "Unlocks the Mine activity.",
             Cost = 1,
             RequiredLevel = null,
-            PrerequisiteSkillId = autoKill.Id,
+            PrerequisiteSkillId = null,
             PrerequisiteSkillId2 = null
         });
 
@@ -331,6 +331,20 @@ public static partial class Module
         });
 
         Log.Info("Seeding gear recipes and definitions");
+
+        ctx.Db.GearDefinition.Insert(new GearDefinition
+        {
+            Id = 0,
+            Name = "Tattered Vest",
+            Slot = GearSlot.Chest,
+            StatBonuses = new List<GearStatBonus>
+            {
+                new GearStatBonus { Stat = StatType.Perception, Value = 1 }
+            },
+            HealthBonus = 2,
+            SetName = null,
+            CraftingRecipeId = 0
+        });
 
         var hoodRecipe = ctx.Db.CraftingRecipe.Insert(new CraftingRecipe
         {

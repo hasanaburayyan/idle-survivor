@@ -4,8 +4,8 @@ using System.Collections.Generic;
 
 public partial class Zombie : CharacterBody2D
 {
-	private const float MoveSpeedMin = 35f;
-	private const float MoveSpeedMax = 65f;
+	private const float MoveSpeedMin = 55f;
+	private const float MoveSpeedMax = 95f;
 	private const float IdleTimeMin = 1f;
 	private const float IdleTimeMax = 3f;
 	private const float DriftAngleMax = 25f;
@@ -29,6 +29,11 @@ public partial class Zombie : CharacterBody2D
 	private Vector2 _moveDir;
 	private float _stateTimer;
 	private float _moveSpeed;
+
+	private static TileMapLayer _cachedLayer;
+	private static List<Vector2> _cachedCellWorldPositions;
+	private static ulong _cacheBuiltAtMsec;
+	private const ulong CacheTTLMsec = 5000;
 
 	public override void _Ready()
 	{
@@ -129,32 +134,42 @@ public partial class Zombie : CharacterBody2D
 		if (BuildingLayer is null)
 			return false;
 
-		Array<Vector2I> cells = BuildingLayer.GetUsedCells();
-		if (cells.Count == 0)
+		ulong now = Time.GetTicksMsec();
+		if (_cachedLayer != BuildingLayer || _cachedCellWorldPositions is null || now - _cacheBuiltAtMsec > CacheTTLMsec)
+		{
+			_cachedLayer = BuildingLayer;
+			_cachedCellWorldPositions = new List<Vector2>();
+			Vector2 mapScale = BuildingLayer.GetParent<Node2D>().Scale;
+			foreach (Vector2I cell in BuildingLayer.GetUsedCells())
+			{
+				Vector2 localPos = BuildingLayer.MapToLocal(cell);
+				_cachedCellWorldPositions.Add(localPos * mapScale);
+			}
+			_cacheBuiltAtMsec = now;
+		}
+
+		var cellsCached = _cachedCellWorldPositions;
+		if (cellsCached.Count == 0)
 			return false;
 
-		Vector2 mapScale = BuildingLayer.GetParent<Node2D>().Scale;
-
 		float bestDistSq = float.MaxValue;
-		var candidates = new List<Vector2>();
-
-		foreach (Vector2I cell in cells)
+		foreach (var worldPos in cellsCached)
 		{
-			Vector2 localPos = BuildingLayer.MapToLocal(cell);
-			Vector2 worldPos = localPos * mapScale;
 			float distSq = Position.DistanceSquaredTo(worldPos);
 			if (distSq < bestDistSq)
 				bestDistSq = distSq;
 		}
 
 		float threshold = bestDistSq * NearTileThreshold * NearTileThreshold;
-		foreach (Vector2I cell in cells)
+		var candidates = new List<Vector2>();
+		foreach (var worldPos in cellsCached)
 		{
-			Vector2 localPos = BuildingLayer.MapToLocal(cell);
-			Vector2 worldPos = localPos * mapScale;
 			if (Position.DistanceSquaredTo(worldPos) <= threshold)
 				candidates.Add(worldPos);
 		}
+
+		if (candidates.Count == 0)
+			return false;
 
 		Vector2 target = candidates[_rng.RandiRange(0, candidates.Count - 1)];
 		Vector2 toTarget = target - Position;

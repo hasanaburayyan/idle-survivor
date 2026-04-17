@@ -68,6 +68,12 @@ public static partial class Module
         return skill?.Id;
     }
 
+    public static ulong? FindGearDefIdByName(ReducerContext ctx, string name)
+    {
+        var def = ctx.Db.GearDefinition.Name.Find(name);
+        return def?.Id;
+    }
+
     public static void EnsureNewActivities(ReducerContext ctx, Identity participant)
     {
         var woodSkillId = FindSkillIdByName(ctx, "Unlock Wood Gathering");

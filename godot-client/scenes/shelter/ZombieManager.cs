@@ -21,6 +21,9 @@ public partial class ZombieManager : Node
 	private readonly Queue<Vector2> _pendingKillPositions = new();
 
 	private Player _localPlayerNode;
+	private uint _extraKillsPerClick;
+	private const int BaseZombieCount = 100;
+	private int _targetZombieCount = BaseZombieCount;
 
 	public void Init(Node2D worldRoot, TileMapLayer buildingLayer, Vector2 mapScale,
 		Rect2 spawnOuterRect, Rect2 spawnExclusion, Player localPlayerNode)
@@ -35,7 +38,28 @@ public partial class ZombieManager : Node
 		var conn = SpacetimeNetworkManager.Instance.Conn;
 		conn.Db.KillLoot.OnInsert += OnKillLootInsert;
 
-		for (int i = 0; i < 100; i++)
+		EnsureDensity(_targetZombieCount);
+	}
+
+	public void SetKillsPerClickBonus(uint extraKills)
+	{
+		_extraKillsPerClick = extraKills;
+	}
+
+	public void SetDensityLevel(uint level)
+	{
+		_targetZombieCount = BaseZombieCount + (int)level * 20;
+		EnsureDensity(_targetZombieCount);
+	}
+
+	private void EnsureDensity(int target)
+	{
+		int alive = 0;
+		foreach (var child in _worldRoot.GetChildren())
+		{
+			if (child is Zombie z && !z.IsDying) alive++;
+		}
+		for (int i = alive; i < target; i++)
 			SpawnZombie();
 	}
 
@@ -69,12 +93,16 @@ public partial class ZombieManager : Node
 		alive.Sort((a, b) =>
 			a.Position.DistanceSquaredTo(playerPos).CompareTo(b.Position.DistanceSquaredTo(playerPos)));
 
-		int pool = Math.Min(alive.Count, 10);
-		var target = alive[_rng.RandiRange(0, pool - 1)];
-		target.Die();
+		int killCount = 1 + (int)_extraKillsPerClick;
+		int killed = 0;
+		for (int i = 0; i < alive.Count && killed < killCount; i++)
+		{
+			alive[i].Die();
+			killed++;
+		}
 	}
 
-	private void SpawnZombie()
+	public void SpawnZombie()
 	{
 		Vector2 point;
 		do
@@ -97,7 +125,7 @@ public partial class ZombieManager : Node
 	{
 		_pendingKillPositions.Enqueue(deathPosition);
 		SpacetimeNetworkManager.Instance.Conn.Reducers.KillZombie();
-		SpawnZombie();
+		CallDeferred(nameof(SpawnZombie));
 	}
 
 	private void OnKillLootInsert(EventContext ctx, KillLoot loot)

@@ -58,6 +58,11 @@ public static partial class Module {
     }
 
     [SpacetimeDB.Reducer]
+    public static void DebugGrantMoney(ReducerContext ctx) {
+        AddResourceToPlayer(ctx, ctx.Sender, ResourceType.Money, 1000);
+    }
+
+    [SpacetimeDB.Reducer]
     public static void AddResourceToPlayerByPlayerName(ReducerContext ctx, string name, string resourceType, ulong amount) {
         if (!Enum.TryParse<ResourceType>(resourceType, true, out var type)) {
             throw new Exception($"Unknown resource type '{resourceType}'. Valid: {string.Join(", ", Enum.GetNames<ResourceType>())}");
