@@ -41,6 +41,7 @@ public partial class Activity : VBoxContainer
 	private bool _playerStatHandlersRegistered;
 	private bool _resourceHandlersRegistered;
 	private bool _playerLevelHandlersRegistered;
+	private bool _skillTreeHandlersRegistered;
 
 	public override void _Ready()
 	{
@@ -103,6 +104,16 @@ public partial class Activity : VBoxContainer
 			_playerLevelHandlersRegistered = false;
 		}
 
+		if (_skillTreeHandlersRegistered)
+		{
+			if (conn != null)
+			{
+				conn.Db.PlayerSkillTreeUnlock.OnInsert -= OnLocalSkillTreeUnlockChange;
+				conn.Db.PlayerSkillTreeUnlock.OnUpdate -= OnLocalSkillTreeUnlockUpdate;
+			}
+			_skillTreeHandlersRegistered = false;
+		}
+
 		if (_autoRepeatArmed)
 		{
 			_autoRepeatArmed = false;
@@ -140,6 +151,10 @@ public partial class Activity : VBoxContainer
 		conn.Db.PlayerLevel.OnInsert += OnLocalPlayerLevelInsert;
 		conn.Db.PlayerLevel.OnUpdate += OnLocalPlayerLevelUpdate;
 		_playerLevelHandlersRegistered = true;
+
+		conn.Db.PlayerSkillTreeUnlock.OnInsert += OnLocalSkillTreeUnlockChange;
+		conn.Db.PlayerSkillTreeUnlock.OnUpdate += OnLocalSkillTreeUnlockUpdate;
+		_skillTreeHandlersRegistered = true;
 
 		foreach (var task in conn.Db.ActiveTask.Participant.Filter(_trackedIdentity))
 		{
@@ -209,6 +224,20 @@ public partial class Activity : VBoxContainer
 	}
 
 	private void OnLocalPlayerLevelUpdate(SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.PlayerLevel oldRow, SpacetimeDB.Types.PlayerLevel newRow)
+	{
+		if (newRow.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
+			return;
+		RefreshFormat();
+	}
+
+	private void OnLocalSkillTreeUnlockChange(SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.PlayerSkillTreeUnlock row)
+	{
+		if (row.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
+			return;
+		RefreshFormat();
+	}
+
+	private void OnLocalSkillTreeUnlockUpdate(SpacetimeDB.Types.EventContext ctx, SpacetimeDB.Types.PlayerSkillTreeUnlock oldRow, SpacetimeDB.Types.PlayerSkillTreeUnlock newRow)
 	{
 		if (newRow.Owner != SpacetimeNetworkManager.Instance.LocalIdentity)
 			return;
@@ -433,6 +462,7 @@ public partial class Activity : VBoxContainer
 		ActivityType.Scavenge => "Scavenge",
 		ActivityType.ChopWood => "Chop Wood",
 		ActivityType.Mine => "Mine",
+		ActivityType.GatherFabric => "Gather Fabric",
 		_ => type.ToString()
 	};
 
@@ -486,6 +516,17 @@ public partial class Activity : VBoxContainer
 				return false;
 		}
 
+		if (activity.RequiredSkillTreeNodeId is ulong reqTreeNodeId)
+		{
+			bool unlocked = false;
+			foreach (var u in conn.Db.PlayerSkillTreeUnlock.ByOwnerAndNode
+					.Filter((Owner: owner, NodeId: reqTreeNodeId)))
+			{
+				if (u.Level >= 1) { unlocked = true; break; }
+			}
+			if (!unlocked) return false;
+		}
+
 		return true;
 	}
 
@@ -498,6 +539,8 @@ public partial class Activity : VBoxContainer
 			parts.Add($"Structure: {reqStruct}");
 		if (activity.RequiredSkillId is ulong)
 			parts.Add("Skill required");
+		if (activity.RequiredSkillTreeNodeId is ulong)
+			parts.Add("Skill tree node required");
 		return parts.Count > 0 ? "Requires: " + string.Join(", ", parts) : "";
 	}
 
@@ -533,24 +576,19 @@ public partial class Activity : VBoxContainer
 			return;
 		}
 
-		Visible = true;
-
 		bool unlocked = ActivityMeetsUnlockCriteria(conn, localId, activity);
 
 		if (!unlocked)
 		{
 			DisarmAutoRepeatIfThis();
-			var lockText = GetUnlockRequirementText(activity);
-			ActivateButton.Text = $"{GetActivityDisplayName(activity.Type)} [LOCKED]";
-			ActivateButton.Disabled = true;
-			CostLabel.Text = lockText;
-			DurationLabel.Text = "";
-			UpgradeRow.Visible = false;
+			Visible = false;
 			ProgressBar.Value = 0;
 			return;
 		}
 
-		var title = $"{GetActivityDisplayName(activity.Type)} Lv{activity.Level}" + (_autoRepeatArmed ? " (AUTO)" : "");
+		Visible = true;
+
+		var title = $"{GetActivityDisplayName(activity.Type)}" + (_autoRepeatArmed ? " (AUTO)" : "");
 		ActivateButton.Text = title;
 		ActivateButton.Disabled = false;
 
@@ -559,22 +597,30 @@ public partial class Activity : VBoxContainer
 			costParts.Add("Cost: " + string.Join(", ", activity.Cost.Select(c => $"{c.Amount} {c.Type}")));
 		CostLabel.Text = string.Join(" — ", costParts);
 
-		var seconds = activity.DurationMs / 1000.0;
-		DurationLabel.Text = seconds >= 1.0 ? $"{seconds:F0}s" : $"{seconds:F1}s";
+		var effectiveMs = GetEffectiveDurationMs(conn, localId, activity.Type, activity.DurationMs);
+		var seconds = effectiveMs / 1000.0;
+		DurationLabel.Text = $"{seconds:F1}s";
 
-		UpgradeRow.Visible = true;
-		var upgradeCosts = new List<ActivityCost>();
-		AppendNextUpgradeCostsPreview(activity.Type, activity.Level, upgradeCosts);
-		if (upgradeCosts.Count == 0)
+		UpgradeRow.Visible = false;
+	}
+
+	private static ulong GetEffectiveDurationMs(DbConnection conn, SpacetimeDB.Identity owner, ActivityType type, ulong baseDurationMs)
+	{
+		uint speedLevel = 0;
+		foreach (var u in conn.Db.PlayerSkillTreeUnlock.Owner.Filter(owner))
 		{
-			UpgradeCostLabel.Text = "";
-			UpgradeButton.Disabled = true;
+			if (u.Level < 1) continue;
+			var node = conn.Db.SkillTreeNode.Id.Find(u.NodeId);
+			if (node is not null
+				&& node.EffectKind == SkillTreeEffectKind.ActivitySpeedUpgrade
+				&& node.EffectParam == (uint)(byte)type)
+			{
+				speedLevel = u.Level;
+				break;
+			}
 		}
-		else
-		{
-			UpgradeCostLabel.Text = "Next: " + string.Join(", ", upgradeCosts.Select(c => $"{c.Amount} {c.Type}"));
-			UpgradeButton.Disabled = !PlayerCanAfford(conn, localId, upgradeCosts);
-		}
+		ulong reduction = (ulong)speedLevel * 100;
+		return reduction >= baseDurationMs ? 1UL : baseDurationMs - reduction;
 	}
 
 	private void OnActivatePressed()

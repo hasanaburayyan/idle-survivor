@@ -57,7 +57,7 @@ public static partial class Module
     {
         foreach (var act in ctx.Db.Activity.Participant.Filter(participant))
         {
-            if ((byte)act.Type > (byte)ActivityType.Mine)
+            if ((byte)act.Type > (byte)ActivityType.GatherFabric)
                 ctx.Db.Activity.Id.Delete(act.Id);
         }
     }
@@ -76,16 +76,21 @@ public static partial class Module
 
     public static void EnsureNewActivities(ReducerContext ctx, Identity participant)
     {
-        var woodSkillId = FindSkillIdByName(ctx, "Unlock Wood Gathering");
-        var metalSkillId = FindSkillIdByName(ctx, "Unlock Metal Gathering");
+        var unlockWoodNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Wood")?.Id;
+        var unlockScrapMetalNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Scrap Metal")?.Id;
+        var unlockFabricNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Fabric")?.Id;
 
-        UpsertActivity(ctx, participant, ActivityType.ChopWood, durationMs: 3000, requiredSkillId: woodSkillId);
-        UpsertActivity(ctx, participant, ActivityType.Mine, durationMs: 3000, requiredSkillId: metalSkillId);
+        UpsertActivity(ctx, participant, ActivityType.ChopWood, durationMs: 3000,
+            requiredSkillTreeNodeId: unlockWoodNodeId);
+        UpsertActivity(ctx, participant, ActivityType.Mine, durationMs: 3000,
+            requiredSkillTreeNodeId: unlockScrapMetalNodeId);
+        UpsertActivity(ctx, participant, ActivityType.GatherFabric, durationMs: 3000,
+            requiredSkillTreeNodeId: unlockFabricNodeId);
     }
 
     private static void UpsertActivity(
         ReducerContext ctx, Identity participant,
-        ActivityType type, ulong durationMs, ulong? requiredSkillId)
+        ActivityType type, ulong durationMs, ulong? requiredSkillTreeNodeId)
     {
         var existing = ctx.Db.Activity.by_activity_participant_type
             .Filter((Participant: participant, Type: type)).FirstOrDefault();
@@ -101,19 +106,24 @@ public static partial class Module
                 RequiredLocation = LocationType.Shelter,
                 RequiredLevel = null,
                 RequiredStructure = null,
-                RequiredSkillId = requiredSkillId,
+                RequiredSkillId = null,
+                RequiredSkillTreeNodeId = requiredSkillTreeNodeId,
                 Level = 1
             });
             return;
         }
 
-        if (existing.DurationMs != durationMs || existing.RequiredSkillId != requiredSkillId || existing.RequiredLevel != null)
+        if (existing.DurationMs != durationMs
+            || existing.RequiredSkillTreeNodeId != requiredSkillTreeNodeId
+            || existing.RequiredLevel != null
+            || existing.RequiredSkillId != null)
         {
             ctx.Db.Activity.Id.Update(existing with
             {
                 DurationMs = durationMs,
                 RequiredLevel = null,
-                RequiredSkillId = requiredSkillId
+                RequiredSkillId = null,
+                RequiredSkillTreeNodeId = requiredSkillTreeNodeId
             });
         }
     }

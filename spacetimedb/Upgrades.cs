@@ -85,6 +85,9 @@ public static partial class Module {
         if (ctx.Db.Player.Identity.Find(ctx.Sender) is null)
             throw new Exception("Player not found");
 
+        if (type != UpgradeType.LootMultiplier && !IsUpgradeUnlocked(ctx, ctx.Sender, type))
+            throw new Exception($"{type} is not unlocked yet");
+
         var existing = ctx.Db.PlayerUpgrade.by_upgrade_owner_type
             .Filter((Owner: ctx.Sender, Type: type));
 

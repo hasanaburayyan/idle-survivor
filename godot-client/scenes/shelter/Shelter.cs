@@ -62,7 +62,7 @@ public partial class Shelter : Node2D
 	private Button _btnSystem;
 
 	private GearInventoryManager _gearInventoryManager;
-	private UpgradesManager _upgradesManager;
+	private SkillTreeManager _skillTreeManager;
 
 	private int? _openPopupIndex;
 
@@ -137,17 +137,17 @@ public partial class Shelter : Node2D
 		_gearInventoryManager.Init(GetNode<CanvasLayer>("CanvasLayerPopups"));
 		_gearInventoryManager.CloseRequested += CloseAllPopups;
 
-		_upgradesManager = new UpgradesManager();
-		AddChild(_upgradesManager);
-		_upgradesManager.Init(GetNode<CanvasLayer>("CanvasLayerPopups"));
-		_upgradesManager.CloseRequested += CloseAllPopups;
+		_skillTreeManager = new SkillTreeManager();
+		AddChild(_skillTreeManager);
+		_skillTreeManager.Init(GetNode<CanvasLayer>("CanvasLayerPopups"));
+		_skillTreeManager.CloseRequested += CloseAllPopups;
 
 		var bottomMenuBar = GetNode<HBoxContainer>("%BottomMenuBar");
-		var upgradesMenuButton = new Button();
-		upgradesMenuButton.Text = "Upgrades";
-		upgradesMenuButton.CustomMinimumSize = new Vector2(120, 36);
-		upgradesMenuButton.Pressed += () => TogglePopup(7);
-		bottomMenuBar.AddChild(upgradesMenuButton);
+		var skillTreeMenuButton = new Button();
+		skillTreeMenuButton.Text = "Skill Tree";
+		skillTreeMenuButton.CustomMinimumSize = new Vector2(120, 36);
+		skillTreeMenuButton.Pressed += () => TogglePopup(7);
+		bottomMenuBar.AddChild(skillTreeMenuButton);
 
 		_btnSkills.Visible = false;
 
@@ -187,7 +187,7 @@ public partial class Shelter : Node2D
 		_worldRoot.AddChild(_localPlayerNode);
 		_localPlayerNode.SetName(player.DisplayName);
 		_localPlayerNode.BindActivityDisplay(SpacetimeNetworkManager.Instance.LocalIdentity);
-		_localPlayerNode.AutoKillEnabled = HasSkillByName(conn, SpacetimeNetworkManager.Instance.LocalIdentity, "Auto Kill Zombie");
+		_localPlayerNode.AutoKillEnabled = HasSkillTreeNodeNamed(conn, SpacetimeNetworkManager.Instance.LocalIdentity, "Auto Kill");
 		_localPlayerNode.KillRequested += () => _zombieManager?.OnPlayerKillRequested();
 
 		var groundLayer = _worldRoot.GetNode<Node2D>("PlayfieldMap/TileMapLayer");
@@ -248,9 +248,9 @@ public partial class Shelter : Node2D
 		conn.Db.PlayerLevel.OnInsert += OnPlayerLevelChange;
 		conn.Db.PlayerLevel.OnUpdate += OnPlayerLevelUpdate;
 		conn.Db.PlayerSkill.OnInsert += OnPlayerSkillInsert;
+		conn.Db.PlayerSkillTreeUnlock.OnInsert += OnPlayerSkillTreeUnlockInsert;
 
-		conn.Db.PlayerUpgrade.OnInsert += OnPlayerUpgradeChanged;
-		conn.Db.PlayerUpgrade.OnUpdate += OnPlayerUpgradeUpdated;
+		conn.Db.PlayerSkillTreeUnlock.OnUpdate += OnPlayerSkillTreeUnlockUpdate;
 		ApplyUpgradeEffects();
 
 		_guildSocialPanel.GuildSessionChanged += _guildMemberManager.OnGuildSessionChanged;
@@ -337,7 +337,7 @@ public partial class Shelter : Node2D
 		4 => _modalSkills,
 		5 => _modalSystem,
 		6 => _structureCraftPopupManager.ModalPanel,
-		7 => _upgradesManager.ModalPanel,
+		7 => _skillTreeManager.ModalPanel,
 		_ => null,
 	};
 
@@ -401,7 +401,7 @@ public partial class Shelter : Node2D
 		_skillsPopup.Visible = index == 4;
 		_systemPopup.Visible = index == 5;
 		_structureCraftPopupManager.Popup.Visible = index == 6;
-		_upgradesManager.Popup.Visible = index == 7;
+		_skillTreeManager.Popup.Visible = index == 7;
 
 		switch (index)
 		{
@@ -422,7 +422,7 @@ public partial class Shelter : Node2D
 				_structureCraftPopupManager.Refresh();
 				break;
 			case 7:
-				_upgradesManager.SetOpen(true);
+				_skillTreeManager.SetOpen(true);
 				break;
 		}
 	}
@@ -440,8 +440,8 @@ public partial class Shelter : Node2D
 		_systemPopup.Visible = false;
 		_structureCraftPopupManager.Popup.Visible = false;
 		_structureCraftPopupManager.Close();
-		_upgradesManager.Popup.Visible = false;
-		_upgradesManager.SetOpen(false);
+		_skillTreeManager.Popup.Visible = false;
+		_skillTreeManager.SetOpen(false);
 	}
 
 	private void OnViewportSizeChanged()
@@ -585,11 +585,8 @@ public partial class Shelter : Node2D
 	{
 		var set = new HashSet<ResourceType>();
 
-		if (loc == LocationType.Shelter)
-		{
-			foreach (ResourceType r in Enum.GetValues<ResourceType>())
-				set.Add(r);
-		}
+		foreach (var row in conn.Db.ResourceTracker.Owner.Filter(localId))
+			set.Add(row.Type);
 
 		foreach (var activity in conn.Db.Activity.Participant.Filter(localId))
 		{
@@ -597,15 +594,6 @@ public partial class Shelter : Node2D
 				continue;
 			foreach (var c in activity.Cost)
 				set.Add(c.Type);
-		}
-
-		if (loc == LocationType.Shelter || loc == LocationType.GuildHall)
-		{
-			foreach (var def in conn.Db.StructureDefinition.Iter())
-			{
-				foreach (var c in def.Cost)
-					set.Add(c.Type);
-			}
 		}
 
 		var ordered = new List<ResourceType>();
@@ -768,6 +756,18 @@ public partial class Shelter : Node2D
 			.Filter((Owner: owner, SkillDefinitionId: def.Id)).Any();
 	}
 
+	private static bool HasSkillTreeNodeNamed(DbConnection conn, SpacetimeDB.Identity owner, string nodeName)
+	{
+		var node = conn.Db.SkillTreeNode.Name.Find(nodeName);
+		if (node is null) return false;
+		foreach (var u in conn.Db.PlayerSkillTreeUnlock.ByOwnerAndNode
+				.Filter((Owner: owner, NodeId: node.Id)))
+		{
+			if (u.Level >= 1) return true;
+		}
+		return false;
+	}
+
 	private static ulong XpForNextLevel(uint level) =>
 		(ulong)Math.Floor(20.0 * Math.Pow(1.5, level));
 
@@ -825,11 +825,25 @@ public partial class Shelter : Node2D
 		if (_openPopupIndex == 4) _skillsManager.RefreshIfOpen();
 
 		var conn = SpacetimeNetworkManager.Instance.Conn;
-		if (_localPlayerNode != null)
-			_localPlayerNode.AutoKillEnabled = HasSkillByName(conn, row.Owner, "Auto Kill Zombie");
-
 		if (HasSkillByName(conn, row.Owner, "Unlock Wastes"))
 			RefreshLocationUI();
+	}
+
+	private void OnPlayerSkillTreeUnlockInsert(EventContext ctx, SpacetimeDB.Types.PlayerSkillTreeUnlock row)
+	{
+		if (row.Owner != SpacetimeNetworkManager.Instance.LocalIdentity) return;
+
+		var conn = SpacetimeNetworkManager.Instance.Conn;
+		if (_localPlayerNode != null)
+			_localPlayerNode.AutoKillEnabled = HasSkillTreeNodeNamed(conn, row.Owner, "Auto Kill");
+
+		ApplyUpgradeEffects();
+	}
+
+	private void OnPlayerSkillTreeUnlockUpdate(EventContext ctx, SpacetimeDB.Types.PlayerSkillTreeUnlock oldRow, SpacetimeDB.Types.PlayerSkillTreeUnlock newRow)
+	{
+		if (newRow.Owner != SpacetimeNetworkManager.Instance.LocalIdentity) return;
+		ApplyUpgradeEffects();
 	}
 
 	private void OnPlayerUpdate(EventContext ctx, SpacetimeDB.Types.Player oldPlayer, SpacetimeDB.Types.Player newPlayer)
@@ -859,18 +873,6 @@ public partial class Shelter : Node2D
 			RefreshLocationUI();
 	}
 
-	private void OnPlayerUpgradeChanged(EventContext ctx, SpacetimeDB.Types.PlayerUpgrade row)
-	{
-		if (row.Owner == SpacetimeNetworkManager.Instance.LocalIdentity)
-			ApplyUpgradeEffects();
-	}
-
-	private void OnPlayerUpgradeUpdated(EventContext ctx, SpacetimeDB.Types.PlayerUpgrade oldRow, SpacetimeDB.Types.PlayerUpgrade newRow)
-	{
-		if (newRow.Owner == SpacetimeNetworkManager.Instance.LocalIdentity)
-			ApplyUpgradeEffects();
-	}
-
 	private void ApplyUpgradeEffects()
 	{
 		var conn = SpacetimeNetworkManager.Instance?.Conn;
@@ -881,13 +883,18 @@ public partial class Shelter : Node2D
 		uint killsPerClickLvl = 0;
 		uint densityLvl = 0;
 
-		foreach (var upg in conn.Db.PlayerUpgrade.Owner.Filter(localId))
+		foreach (var unlock in conn.Db.PlayerSkillTreeUnlock.Owner.Filter(localId))
 		{
-			switch (upg.Type)
+			if (unlock.Level < 1) continue;
+			var node = conn.Db.SkillTreeNode.Id.Find(unlock.NodeId);
+			if (node is null) continue;
+			if (node.EffectKind != SkillTreeEffectKind.UnlockUpgrade) continue;
+
+			switch ((UpgradeType)(byte)node.EffectParam)
 			{
-				case UpgradeType.AttackSpeed:    attackSpeedLvl = upg.Level; break;
-				case UpgradeType.KillsPerClick:  killsPerClickLvl = upg.Level; break;
-				case UpgradeType.ZombieDensity:  densityLvl = upg.Level; break;
+				case UpgradeType.AttackSpeed:    attackSpeedLvl = unlock.Level; break;
+				case UpgradeType.KillsPerClick:  killsPerClickLvl = unlock.Level; break;
+				case UpgradeType.ZombieDensity:  densityLvl = unlock.Level; break;
 			}
 		}
 

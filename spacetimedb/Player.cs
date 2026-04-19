@@ -61,6 +61,13 @@ public static partial class Module {
             AvailableSkillPoints = 0
         });
 
+        ctx.Db.ResourceTracker.Insert(new ResourceTracker
+        {
+            Owner = ctx.Sender,
+            Type = ResourceType.Money,
+            Amount = 0
+        });
+
         StartShelterSchedules(ctx, ctx.Sender);
 
         ctx.Db.Activity.Insert(new Activity{
@@ -75,7 +82,10 @@ public static partial class Module {
             Level = 1
         });
 
-        var woodSkillId = FindSkillIdByName(ctx, "Unlock Wood Gathering");
+        var unlockWoodNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Wood")?.Id;
+        var unlockScrapMetalNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Scrap Metal")?.Id;
+        var unlockFabricNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Fabric")?.Id;
+
         ctx.Db.Activity.Insert(new Activity{
             Participant = ctx.Sender,
             Type = ActivityType.ChopWood,
@@ -84,11 +94,11 @@ public static partial class Module {
             RequiredLocation = LocationType.Shelter,
             RequiredLevel = null,
             RequiredStructure = null,
-            RequiredSkillId = woodSkillId,
+            RequiredSkillId = null,
+            RequiredSkillTreeNodeId = unlockWoodNodeId,
             Level = 1
         });
 
-        var metalSkillId = FindSkillIdByName(ctx, "Unlock Metal Gathering");
         ctx.Db.Activity.Insert(new Activity{
             Participant = ctx.Sender,
             Type = ActivityType.Mine,
@@ -97,7 +107,21 @@ public static partial class Module {
             RequiredLocation = LocationType.Shelter,
             RequiredLevel = null,
             RequiredStructure = null,
-            RequiredSkillId = metalSkillId,
+            RequiredSkillId = null,
+            RequiredSkillTreeNodeId = unlockScrapMetalNodeId,
+            Level = 1
+        });
+
+        ctx.Db.Activity.Insert(new Activity{
+            Participant = ctx.Sender,
+            Type = ActivityType.GatherFabric,
+            Cost = [],
+            DurationMs = 3000,
+            RequiredLocation = LocationType.Shelter,
+            RequiredLevel = null,
+            RequiredStructure = null,
+            RequiredSkillId = null,
+            RequiredSkillTreeNodeId = unlockFabricNodeId,
             Level = 1
         });
 
@@ -133,8 +157,8 @@ public static partial class Module {
         SetStat(ctx, ctx.Sender, StatType.ZombiesKilled, current + 1);
 
         var random = new Random();
-        var values = Enum.GetValues<ResourceType>();
-        var resourceType = values[random.Next(values.Length)];
+        var pool = GetScavengePool(ctx, ctx.Sender);
+        var resourceType = pool[random.Next(pool.Count)];
         var level = GetActivityLevel(ctx, ctx.Sender, ActivityType.Scavenge);
         var lootBonus = (ulong)GetUpgradeLevel(ctx, ctx.Sender, UpgradeType.LootMultiplier);
         var amount = GetScavengeAmountForResource(ctx, ctx.Sender, resourceType) + level + lootBonus;

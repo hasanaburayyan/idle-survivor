@@ -561,6 +561,7 @@ height = 24.0
 
 [node name="Zombie" type="CharacterBody2D" unique_id=2017108865]
 scale = Vector2(3, 3)
+collision_layer = 2
 script = ExtResource("1_script")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1736284061]

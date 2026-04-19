@@ -248,72 +248,278 @@ public static partial class Module
             DurationMs = 5000
         });
 
-        Log.Info("Seeding skill definitions");
+        Log.Info("Seeding skill tree nodes");
 
-        var autoKill = ctx.Db.SkillDefinition.Insert(new SkillDefinition
+        var autoKillNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
         {
             Id = 0,
-            Name = "Auto Kill Zombie",
-            Description = "Your character automatically kills nearby zombies.",
-            Cost = 1,
-            RequiredLevel = null,
-            PrerequisiteSkillId = null,
-            PrerequisiteSkillId2 = null
+            Name = "Auto Kill",
+            Tooltip = "Automatically kill nearby zombies",
+            PrerequisiteNodeId = null,
+            PrerequisiteMinLevel = 0,
+            VisualPrerequisiteNodeId = null,
+            PosX = 0f,
+            PosY = 0f,
+            EffectKind = SkillTreeEffectKind.AutoKillEnable,
+            EffectParam = 0,
+            BaseMaxLevel = 1,
+            BaseCost = 20,
+            BranchTier = 0
         });
 
-        var unlockWood = ctx.Db.SkillDefinition.Insert(new SkillDefinition
+        var attackSpeedNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
         {
             Id = 0,
-            Name = "Unlock Wood Gathering",
-            Description = "Unlocks the Chop Wood activity.",
-            Cost = 1,
-            RequiredLevel = null,
-            PrerequisiteSkillId = null,
-            PrerequisiteSkillId2 = null
+            Name = "Attack Speed",
+            Tooltip = "Swing faster. -5% attack cooldown per level.",
+            PrerequisiteNodeId = autoKillNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = -140f,
+            PosY = 140f,
+            EffectKind = SkillTreeEffectKind.UnlockUpgrade,
+            EffectParam = (uint)(byte)UpgradeType.AttackSpeed,
+            BaseMaxLevel = 5,
+            BaseCost = 15,
+            BranchTier = 0
         });
 
-        var unlockMetal = ctx.Db.SkillDefinition.Insert(new SkillDefinition
+        var killsPerClickNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
         {
             Id = 0,
-            Name = "Unlock Metal Gathering",
-            Description = "Unlocks the Mine activity.",
-            Cost = 1,
-            RequiredLevel = null,
-            PrerequisiteSkillId = null,
-            PrerequisiteSkillId2 = null
+            Name = "Kills Per Click",
+            Tooltip = "+1 additional zombie per swing per level.",
+            PrerequisiteNodeId = attackSpeedNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = -140f,
+            PosY = 280f,
+            EffectKind = SkillTreeEffectKind.UnlockUpgrade,
+            EffectParam = (uint)(byte)UpgradeType.KillsPerClick,
+            BaseMaxLevel = 5,
+            BaseCost = 15,
+            BranchTier = 0
         });
 
-        var autoActivity = ctx.Db.SkillDefinition.Insert(new SkillDefinition
+        var zombieDensityNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
         {
             Id = 0,
-            Name = "Automate Activity",
-            Description = "Allows you to automate 1 activity at a time.",
-            Cost = 1,
-            RequiredLevel = null,
-            PrerequisiteSkillId = unlockWood.Id,
-            PrerequisiteSkillId2 = unlockMetal.Id
+            Name = "Zombie Density",
+            Tooltip = "+20 more zombies roaming the shelter per level.",
+            PrerequisiteNodeId = killsPerClickNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = -140f,
+            PosY = 420f,
+            EffectKind = SkillTreeEffectKind.UnlockUpgrade,
+            EffectParam = (uint)(byte)UpgradeType.ZombieDensity,
+            BaseMaxLevel = 5,
+            BaseCost = 15,
+            BranchTier = 0
         });
 
-        ctx.Db.SkillDefinition.Insert(new SkillDefinition
+        var unlockWoodNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
         {
             Id = 0,
-            Name = "Automate Activity 2",
-            Description = "Allows you to automate a second activity simultaneously.",
-            Cost = 10,
-            RequiredLevel = null,
-            PrerequisiteSkillId = autoActivity.Id,
-            PrerequisiteSkillId2 = null
+            Name = "Unlock Wood",
+            Tooltip = "Unlocks the Chop Wood activity. Previously leveled nodes gain +5 max level; Wood is added to upgrade costs past that threshold.",
+            PrerequisiteNodeId = zombieDensityNode.Id,
+            PrerequisiteMinLevel = 5,
+            VisualPrerequisiteNodeId = autoKillNode.Id,
+            PosX = 140f,
+            PosY = 140f,
+            EffectKind = SkillTreeEffectKind.ScavengeUnlock,
+            EffectParam = (uint)(byte)ResourceType.Wood,
+            BaseMaxLevel = 1,
+            BaseCost = 150,
+            BranchTier = 1
         });
 
-        ctx.Db.SkillDefinition.Insert(new SkillDefinition
+        var chopWoodEfficiencyNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
         {
             Id = 0,
-            Name = "Unlock Wastes",
-            Description = "Placeholder — venture into the wastes.",
-            Cost = 1,
-            RequiredLevel = null,
-            PrerequisiteSkillId = autoActivity.Id,
-            PrerequisiteSkillId2 = null
+            Name = "Chop Wood Efficiency",
+            Tooltip = "+1 Wood per Chop Wood completion per level.",
+            PrerequisiteNodeId = unlockWoodNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 140f,
+            PosY = 280f,
+            EffectKind = SkillTreeEffectKind.UpgradeActivity,
+            EffectParam = (uint)(byte)ActivityType.ChopWood,
+            BaseMaxLevel = 5,
+            BaseCost = 20,
+            BranchTier = 1
+        });
+
+        var chopWoodSpeedNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Chop Wood Speed",
+            Tooltip = "-0.1s Chop Wood duration per level.",
+            PrerequisiteNodeId = chopWoodEfficiencyNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 140f,
+            PosY = 420f,
+            EffectKind = SkillTreeEffectKind.ActivitySpeedUpgrade,
+            EffectParam = (uint)(byte)ActivityType.ChopWood,
+            BaseMaxLevel = 5,
+            BaseCost = 25,
+            BranchTier = 1
+        });
+
+        ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Auto Chop Wood",
+            Tooltip = "Chop Wood runs automatically on a recurring schedule.",
+            PrerequisiteNodeId = chopWoodSpeedNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 140f,
+            PosY = 560f,
+            EffectKind = SkillTreeEffectKind.AutoActivity,
+            EffectParam = (uint)(byte)ActivityType.ChopWood,
+            BaseMaxLevel = 1,
+            BaseCost = 120,
+            BranchTier = 1
+        });
+
+        var unlockScrapMetalNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Unlock Scrap Metal",
+            Tooltip = "Unlocks the Mine activity. Previously leveled nodes gain +5 max level; Scrap Metal is added to upgrade costs past that threshold.",
+            PrerequisiteNodeId = chopWoodSpeedNode.Id,
+            PrerequisiteMinLevel = 5,
+            VisualPrerequisiteNodeId = autoKillNode.Id,
+            PosX = 320f,
+            PosY = 140f,
+            EffectKind = SkillTreeEffectKind.ScavengeUnlock,
+            EffectParam = (uint)(byte)ResourceType.Metal,
+            BaseMaxLevel = 1,
+            BaseCost = 250,
+            BranchTier = 2
+        });
+
+        var mineEfficiencyNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Mine Efficiency",
+            Tooltip = "+1 Scrap Metal per Mine completion per level.",
+            PrerequisiteNodeId = unlockScrapMetalNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 320f,
+            PosY = 280f,
+            EffectKind = SkillTreeEffectKind.UpgradeActivity,
+            EffectParam = (uint)(byte)ActivityType.Mine,
+            BaseMaxLevel = 5,
+            BaseCost = 30,
+            BranchTier = 2
+        });
+
+        var mineSpeedNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Mine Speed",
+            Tooltip = "-0.1s Mine duration per level.",
+            PrerequisiteNodeId = mineEfficiencyNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 320f,
+            PosY = 420f,
+            EffectKind = SkillTreeEffectKind.ActivitySpeedUpgrade,
+            EffectParam = (uint)(byte)ActivityType.Mine,
+            BaseMaxLevel = 5,
+            BaseCost = 40,
+            BranchTier = 2
+        });
+
+        ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Auto Mine",
+            Tooltip = "Mine runs automatically on a recurring schedule.",
+            PrerequisiteNodeId = mineSpeedNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 320f,
+            PosY = 560f,
+            EffectKind = SkillTreeEffectKind.AutoActivity,
+            EffectParam = (uint)(byte)ActivityType.Mine,
+            BaseMaxLevel = 1,
+            BaseCost = 200,
+            BranchTier = 2
+        });
+
+        var unlockFabricNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Unlock Fabric",
+            Tooltip = "Unlocks the Gather Fabric activity. Previously leveled nodes gain +5 max level; Fabric is added to upgrade costs past that threshold.",
+            PrerequisiteNodeId = mineSpeedNode.Id,
+            PrerequisiteMinLevel = 5,
+            VisualPrerequisiteNodeId = autoKillNode.Id,
+            PosX = 500f,
+            PosY = 140f,
+            EffectKind = SkillTreeEffectKind.ScavengeUnlock,
+            EffectParam = (uint)(byte)ResourceType.Fabric,
+            BaseMaxLevel = 1,
+            BaseCost = 400,
+            BranchTier = 3
+        });
+
+        var gatherFabricEfficiencyNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Gather Fabric Efficiency",
+            Tooltip = "+1 Fabric per Gather Fabric completion per level.",
+            PrerequisiteNodeId = unlockFabricNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 500f,
+            PosY = 280f,
+            EffectKind = SkillTreeEffectKind.UpgradeActivity,
+            EffectParam = (uint)(byte)ActivityType.GatherFabric,
+            BaseMaxLevel = 5,
+            BaseCost = 45,
+            BranchTier = 3
+        });
+
+        var gatherFabricSpeedNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Gather Fabric Speed",
+            Tooltip = "-0.1s Gather Fabric duration per level.",
+            PrerequisiteNodeId = gatherFabricEfficiencyNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 500f,
+            PosY = 420f,
+            EffectKind = SkillTreeEffectKind.ActivitySpeedUpgrade,
+            EffectParam = (uint)(byte)ActivityType.GatherFabric,
+            BaseMaxLevel = 5,
+            BaseCost = 60,
+            BranchTier = 3
+        });
+
+        ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Auto Gather Fabric",
+            Tooltip = "Gather Fabric runs automatically on a recurring schedule.",
+            PrerequisiteNodeId = gatherFabricSpeedNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 500f,
+            PosY = 560f,
+            EffectKind = SkillTreeEffectKind.AutoActivity,
+            EffectParam = (uint)(byte)ActivityType.GatherFabric,
+            BaseMaxLevel = 1,
+            BaseCost = 320,
+            BranchTier = 3
         });
 
         Log.Info("Seeding storage chest structure");
@@ -601,14 +807,6 @@ public static partial class Module
                 throw new Exception("You are not in a guild");
         }
 
-        if (destination == LocationType.Wastes)
-        {
-            var wastesDef = ctx.Db.SkillDefinition.Name.Find("Unlock Wastes")
-                ?? throw new Exception("Unlock Wastes skill not found");
-            if (!ctx.Db.PlayerSkill.by_skill_owner_def
-                .Filter((Owner: ctx.Sender, SkillDefinitionId: wastesDef.Id)).Any())
-                throw new Exception("You haven't unlocked the Wastes");
-        }
 
         ctx.Db.Player.Identity.Update(player with { Location = destination });
 

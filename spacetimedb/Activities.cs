@@ -6,6 +6,7 @@ public enum ActivityType : byte
     Scavenge,
     ChopWood,
     Mine,
+    GatherFabric,
 }
 
 [SpacetimeDB.Type]
@@ -31,6 +32,7 @@ public static partial class Module
         public uint? RequiredLevel;
         public string? RequiredStructure;
         public ulong? RequiredSkillId;
+        public ulong? RequiredSkillTreeNodeId;
         [SpacetimeDB.Default(1)]
         public uint Level;
     }
@@ -165,6 +167,12 @@ public static partial class Module
                 .Filter((Owner: participant, SkillDefinitionId: reqSkillId)).Any())
                 throw new Exception("Requires a skill you haven't learned");
         }
+
+        if (activity.RequiredSkillTreeNodeId is ulong reqTreeNodeId)
+        {
+            if (GetPlayerSkillTreeLevel(ctx, participant, reqTreeNodeId) < 1)
+                throw new Exception("Requires a skill tree node you haven't unlocked");
+        }
     }
 
     private static void DeductActivityCosts(ReducerContext ctx, Identity participant, List<ActivityCost> costs)
@@ -216,17 +224,39 @@ public static partial class Module
             case ActivityType.Scavenge:
                 Scavenge(ctx, arg.Participant);
                 break;
+            case ActivityType.ChopWood:
+                ChopWoodReward(ctx, arg.Participant);
+                break;
+            case ActivityType.Mine:
+                MineReward(ctx, arg.Participant);
+                break;
+            case ActivityType.GatherFabric:
+                GatherFabricReward(ctx, arg.Participant);
+                break;
             default:
                 throw new Exception("Unknown scheduled activity type");
         }
 
         if (arg.IntervalMilliseconds is not null)
         {
+            ulong nextInterval;
+            if (arg.type == ActivityType.ChopWood || arg.type == ActivityType.Mine || arg.type == ActivityType.GatherFabric)
+            {
+                var activityRow = ctx.Db.Activity.by_activity_participant_type
+                    .Filter((Participant: arg.Participant, Type: arg.type)).FirstOrDefault();
+                ulong baseMs = activityRow.Id != 0 ? activityRow.DurationMs : arg.IntervalMilliseconds.Value;
+                nextInterval = GetEffectiveActivityDurationMs(ctx, arg.Participant, arg.type, baseMs);
+            }
+            else
+            {
+                nextInterval = arg.IntervalMilliseconds.Value;
+            }
+
             ctx.Db.ActivitySchedule.Insert(new ActivitySchedule
             {
-                IntervalMilliseconds = arg.IntervalMilliseconds,
+                IntervalMilliseconds = nextInterval,
                 Participant = arg.Participant,
-                ScheduledAt = new ScheduleAt.Time(ctx.Timestamp + TimeSpan.FromMilliseconds(arg.IntervalMilliseconds.Value)),
+                ScheduledAt = new ScheduleAt.Time(ctx.Timestamp + TimeSpan.FromMilliseconds(nextInterval)),
                 type = arg.type
             });
         }
@@ -266,8 +296,8 @@ public static partial class Module
     public static void Scavenge(ReducerContext ctx, Identity participant)
     {
         var random = new Random();
-        var values = Enum.GetValues<ResourceType>();
-        var resourceType = values[random.Next(values.Length)];
+        var pool = GetScavengePool(ctx, participant);
+        var resourceType = pool[random.Next(pool.Count)];
 
         var level = GetActivityLevel(ctx, participant, ActivityType.Scavenge);
         var lootBonus = (ulong)GetUpgradeLevel(ctx, participant, UpgradeType.LootMultiplier);
@@ -279,18 +309,30 @@ public static partial class Module
 
     private static void ChopWoodReward(ReducerContext ctx, Identity participant)
     {
-        var level = GetActivityLevel(ctx, participant, ActivityType.ChopWood);
+        var skillLevel = GetSkillTreeLevelForEffect(ctx, participant,
+            SkillTreeEffectKind.UpgradeActivity, (uint)(byte)ActivityType.ChopWood);
         var baseAmount = (ulong)Math.Max(1, GetStat(ctx, participant, StatType.Endurance));
-        AddResourceToPlayer(ctx, participant, ResourceType.Wood, baseAmount * 3 + level);
+        AddResourceToPlayer(ctx, participant, ResourceType.Wood, baseAmount * 3 + skillLevel);
 
         GrantExperience(ctx, participant, 2);
     }
 
     private static void MineReward(ReducerContext ctx, Identity participant)
     {
-        var level = GetActivityLevel(ctx, participant, ActivityType.Mine);
+        var skillLevel = GetSkillTreeLevelForEffect(ctx, participant,
+            SkillTreeEffectKind.UpgradeActivity, (uint)(byte)ActivityType.Mine);
         var baseAmount = (ulong)Math.Max(1, GetStat(ctx, participant, StatType.Strength));
-        AddResourceToPlayer(ctx, participant, ResourceType.Metal, baseAmount * 3 + level);
+        AddResourceToPlayer(ctx, participant, ResourceType.Metal, baseAmount * 3 + skillLevel);
+
+        GrantExperience(ctx, participant, 3);
+    }
+
+    private static void GatherFabricReward(ReducerContext ctx, Identity participant)
+    {
+        var skillLevel = GetSkillTreeLevelForEffect(ctx, participant,
+            SkillTreeEffectKind.UpgradeActivity, (uint)(byte)ActivityType.GatherFabric);
+        var baseAmount = (ulong)Math.Max(1, GetStat(ctx, participant, StatType.Intelligence));
+        AddResourceToPlayer(ctx, participant, ResourceType.Fabric, baseAmount * 3 + skillLevel);
 
         GrantExperience(ctx, participant, 3);
     }
@@ -318,6 +360,19 @@ public static partial class Module
     [SpacetimeDB.Reducer]
     public static void StartShelterSchedules(ReducerContext ctx, Identity participant) {
         ActivityOnInterval(ctx, participant, ActivityType.Scavenge, 5000, true);
+        ScheduleAutoActivityIfEnabled(ctx, participant, ActivityType.ChopWood);
+        ScheduleAutoActivityIfEnabled(ctx, participant, ActivityType.Mine);
+        ScheduleAutoActivityIfEnabled(ctx, participant, ActivityType.GatherFabric);
+    }
+
+    private static void ScheduleAutoActivityIfEnabled(ReducerContext ctx, Identity participant, ActivityType type)
+    {
+        if (!HasAutoActivity(ctx, participant, type)) return;
+        var activityRow = ctx.Db.Activity.by_activity_participant_type
+            .Filter((Participant: participant, Type: type)).FirstOrDefault();
+        ulong baseMs = activityRow.Id != 0 ? activityRow.DurationMs : 3000UL;
+        var interval = GetEffectiveActivityDurationMs(ctx, participant, type, baseMs);
+        ActivityOnInterval(ctx, participant, type, interval, true);
     }
 
     [SpacetimeDB.Reducer]
@@ -342,7 +397,7 @@ public static partial class Module
         ValidateActivityAccessible(ctx, ctx.Sender, player, activity);
         DeductActivityCosts(ctx, ctx.Sender, activity.Cost);
 
-        var durationMs = activity.DurationMs;
+        var durationMs = GetEffectiveActivityDurationMs(ctx, ctx.Sender, activity.Type, activity.DurationMs);
         var completesAt = ctx.Timestamp + TimeSpan.FromMilliseconds(durationMs);
 
         ctx.Db.ActiveTask.Insert(new ActiveTask {
@@ -370,6 +425,9 @@ public static partial class Module
                 break;
             case ActivityType.Mine:
                 MineReward(ctx, task.Participant);
+                break;
+            case ActivityType.GatherFabric:
+                GatherFabricReward(ctx, task.Participant);
                 break;
             default:
                 throw new Exception("Unknown activity type");
