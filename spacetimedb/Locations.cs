@@ -267,6 +267,7 @@ public static partial class Module
             BranchTier = 0
         });
 
+        // Combat chain — angle 0° (straight up / north)
         var attackSpeedNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
         {
             Id = 0,
@@ -275,8 +276,8 @@ public static partial class Module
             PrerequisiteNodeId = autoKillNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = -140f,
-            PosY = 140f,
+            PosX = 0f,
+            PosY = -150f,
             EffectKind = SkillTreeEffectKind.UnlockUpgrade,
             EffectParam = (uint)(byte)UpgradeType.AttackSpeed,
             BaseMaxLevel = 5,
@@ -292,8 +293,8 @@ public static partial class Module
             PrerequisiteNodeId = attackSpeedNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = -140f,
-            PosY = 280f,
+            PosX = 0f,
+            PosY = -300f,
             EffectKind = SkillTreeEffectKind.UnlockUpgrade,
             EffectParam = (uint)(byte)UpgradeType.KillsPerClick,
             BaseMaxLevel = 5,
@@ -309,8 +310,8 @@ public static partial class Module
             PrerequisiteNodeId = killsPerClickNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = -140f,
-            PosY = 420f,
+            PosX = 0f,
+            PosY = -450f,
             EffectKind = SkillTreeEffectKind.UnlockUpgrade,
             EffectParam = (uint)(byte)UpgradeType.ZombieDensity,
             BaseMaxLevel = 5,
@@ -318,6 +319,7 @@ public static partial class Module
             BranchTier = 0
         });
 
+        // Wood chain — angle 60° (upper-right)
         var unlockWoodNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
         {
             Id = 0,
@@ -326,8 +328,8 @@ public static partial class Module
             PrerequisiteNodeId = zombieDensityNode.Id,
             PrerequisiteMinLevel = 5,
             VisualPrerequisiteNodeId = autoKillNode.Id,
-            PosX = 140f,
-            PosY = 140f,
+            PosX = 130f,
+            PosY = -75f,
             EffectKind = SkillTreeEffectKind.ScavengeUnlock,
             EffectParam = (uint)(byte)ResourceType.Wood,
             BaseMaxLevel = 1,
@@ -343,8 +345,8 @@ public static partial class Module
             PrerequisiteNodeId = unlockWoodNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 140f,
-            PosY = 280f,
+            PosX = 260f,
+            PosY = -150f,
             EffectKind = SkillTreeEffectKind.UpgradeActivity,
             EffectParam = (uint)(byte)ActivityType.ChopWood,
             BaseMaxLevel = 5,
@@ -360,8 +362,8 @@ public static partial class Module
             PrerequisiteNodeId = chopWoodEfficiencyNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 140f,
-            PosY = 420f,
+            PosX = 390f,
+            PosY = -225f,
             EffectKind = SkillTreeEffectKind.ActivitySpeedUpgrade,
             EffectParam = (uint)(byte)ActivityType.ChopWood,
             BaseMaxLevel = 5,
@@ -377,8 +379,8 @@ public static partial class Module
             PrerequisiteNodeId = chopWoodSpeedNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 140f,
-            PosY = 560f,
+            PosX = 520f,
+            PosY = -300f,
             EffectKind = SkillTreeEffectKind.AutoActivity,
             EffectParam = (uint)(byte)ActivityType.ChopWood,
             BaseMaxLevel = 1,
@@ -386,6 +388,7 @@ public static partial class Module
             BranchTier = 1
         });
 
+        // Metal chain — angle 120° (lower-right)
         var unlockScrapMetalNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
         {
             Id = 0,
@@ -394,8 +397,8 @@ public static partial class Module
             PrerequisiteNodeId = chopWoodSpeedNode.Id,
             PrerequisiteMinLevel = 5,
             VisualPrerequisiteNodeId = autoKillNode.Id,
-            PosX = 320f,
-            PosY = 140f,
+            PosX = 130f,
+            PosY = 75f,
             EffectKind = SkillTreeEffectKind.ScavengeUnlock,
             EffectParam = (uint)(byte)ResourceType.Metal,
             BaseMaxLevel = 1,
@@ -411,8 +414,8 @@ public static partial class Module
             PrerequisiteNodeId = unlockScrapMetalNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 320f,
-            PosY = 280f,
+            PosX = 260f,
+            PosY = 150f,
             EffectKind = SkillTreeEffectKind.UpgradeActivity,
             EffectParam = (uint)(byte)ActivityType.Mine,
             BaseMaxLevel = 5,
@@ -428,8 +431,8 @@ public static partial class Module
             PrerequisiteNodeId = mineEfficiencyNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 320f,
-            PosY = 420f,
+            PosX = 390f,
+            PosY = 225f,
             EffectKind = SkillTreeEffectKind.ActivitySpeedUpgrade,
             EffectParam = (uint)(byte)ActivityType.Mine,
             BaseMaxLevel = 5,
@@ -445,8 +448,8 @@ public static partial class Module
             PrerequisiteNodeId = mineSpeedNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 320f,
-            PosY = 560f,
+            PosX = 520f,
+            PosY = 300f,
             EffectKind = SkillTreeEffectKind.AutoActivity,
             EffectParam = (uint)(byte)ActivityType.Mine,
             BaseMaxLevel = 1,
@@ -454,6 +457,7 @@ public static partial class Module
             BranchTier = 2
         });
 
+        // Fabric chain — angle 180° (straight down / south)
         var unlockFabricNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
         {
             Id = 0,
@@ -462,8 +466,8 @@ public static partial class Module
             PrerequisiteNodeId = mineSpeedNode.Id,
             PrerequisiteMinLevel = 5,
             VisualPrerequisiteNodeId = autoKillNode.Id,
-            PosX = 500f,
-            PosY = 140f,
+            PosX = 0f,
+            PosY = 150f,
             EffectKind = SkillTreeEffectKind.ScavengeUnlock,
             EffectParam = (uint)(byte)ResourceType.Fabric,
             BaseMaxLevel = 1,
@@ -479,8 +483,8 @@ public static partial class Module
             PrerequisiteNodeId = unlockFabricNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 500f,
-            PosY = 280f,
+            PosX = 0f,
+            PosY = 300f,
             EffectKind = SkillTreeEffectKind.UpgradeActivity,
             EffectParam = (uint)(byte)ActivityType.GatherFabric,
             BaseMaxLevel = 5,
@@ -496,8 +500,8 @@ public static partial class Module
             PrerequisiteNodeId = gatherFabricEfficiencyNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 500f,
-            PosY = 420f,
+            PosX = 0f,
+            PosY = 450f,
             EffectKind = SkillTreeEffectKind.ActivitySpeedUpgrade,
             EffectParam = (uint)(byte)ActivityType.GatherFabric,
             BaseMaxLevel = 5,
@@ -513,8 +517,8 @@ public static partial class Module
             PrerequisiteNodeId = gatherFabricSpeedNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 500f,
-            PosY = 560f,
+            PosX = 0f,
+            PosY = 600f,
             EffectKind = SkillTreeEffectKind.AutoActivity,
             EffectParam = (uint)(byte)ActivityType.GatherFabric,
             BaseMaxLevel = 1,
@@ -522,6 +526,7 @@ public static partial class Module
             BranchTier = 3
         });
 
+        // Food chain — angle 240° (lower-left)
         var unlockFoodNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
         {
             Id = 0,
@@ -530,8 +535,8 @@ public static partial class Module
             PrerequisiteNodeId = gatherFabricSpeedNode.Id,
             PrerequisiteMinLevel = 5,
             VisualPrerequisiteNodeId = autoKillNode.Id,
-            PosX = 680f,
-            PosY = 140f,
+            PosX = -130f,
+            PosY = 75f,
             EffectKind = SkillTreeEffectKind.ScavengeUnlock,
             EffectParam = (uint)(byte)ResourceType.Food,
             BaseMaxLevel = 1,
@@ -547,8 +552,8 @@ public static partial class Module
             PrerequisiteNodeId = unlockFoodNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 680f,
-            PosY = 280f,
+            PosX = -260f,
+            PosY = 150f,
             EffectKind = SkillTreeEffectKind.UpgradeActivity,
             EffectParam = (uint)(byte)ActivityType.Forage,
             BaseMaxLevel = 5,
@@ -564,8 +569,8 @@ public static partial class Module
             PrerequisiteNodeId = forageEfficiencyNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 680f,
-            PosY = 420f,
+            PosX = -390f,
+            PosY = 225f,
             EffectKind = SkillTreeEffectKind.ActivitySpeedUpgrade,
             EffectParam = (uint)(byte)ActivityType.Forage,
             BaseMaxLevel = 5,
@@ -581,8 +586,8 @@ public static partial class Module
             PrerequisiteNodeId = forageSpeedNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 680f,
-            PosY = 560f,
+            PosX = -520f,
+            PosY = 300f,
             EffectKind = SkillTreeEffectKind.AutoActivity,
             EffectParam = (uint)(byte)ActivityType.Forage,
             BaseMaxLevel = 1,
@@ -590,6 +595,7 @@ public static partial class Module
             BranchTier = 4
         });
 
+        // Parts chain — angle 300° (upper-left)
         var unlockPartsNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
         {
             Id = 0,
@@ -598,8 +604,8 @@ public static partial class Module
             PrerequisiteNodeId = forageSpeedNode.Id,
             PrerequisiteMinLevel = 5,
             VisualPrerequisiteNodeId = autoKillNode.Id,
-            PosX = 860f,
-            PosY = 140f,
+            PosX = -130f,
+            PosY = -75f,
             EffectKind = SkillTreeEffectKind.ScavengeUnlock,
             EffectParam = (uint)(byte)ResourceType.Parts,
             BaseMaxLevel = 1,
@@ -615,8 +621,8 @@ public static partial class Module
             PrerequisiteNodeId = unlockPartsNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 860f,
-            PosY = 280f,
+            PosX = -260f,
+            PosY = -150f,
             EffectKind = SkillTreeEffectKind.UpgradeActivity,
             EffectParam = (uint)(byte)ActivityType.Salvage,
             BaseMaxLevel = 5,
@@ -632,8 +638,8 @@ public static partial class Module
             PrerequisiteNodeId = salvageEfficiencyNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 860f,
-            PosY = 420f,
+            PosX = -390f,
+            PosY = -225f,
             EffectKind = SkillTreeEffectKind.ActivitySpeedUpgrade,
             EffectParam = (uint)(byte)ActivityType.Salvage,
             BaseMaxLevel = 5,
@@ -649,8 +655,8 @@ public static partial class Module
             PrerequisiteNodeId = salvageSpeedNode.Id,
             PrerequisiteMinLevel = 1,
             VisualPrerequisiteNodeId = null,
-            PosX = 860f,
-            PosY = 560f,
+            PosX = -520f,
+            PosY = -300f,
             EffectKind = SkillTreeEffectKind.AutoActivity,
             EffectParam = (uint)(byte)ActivityType.Salvage,
             BaseMaxLevel = 1,

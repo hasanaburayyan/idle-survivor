@@ -18,7 +18,7 @@ public partial class SkillTreeManager : Node
 	private bool _isOpen;
 
 	private const float CanvasOriginX = 400f;
-	private const float CanvasOriginY = 100f;
+	private const float CanvasOriginY = 320f;
 	private const float NodeRadius = 38f;
 
 	public Control Popup => _popup;
