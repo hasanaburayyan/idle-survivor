@@ -522,6 +522,142 @@ public static partial class Module
             BranchTier = 3
         });
 
+        var unlockFoodNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Unlock Food",
+            Tooltip = "Unlocks the Forage activity. Previously leveled nodes gain +5 max level; Food is added to upgrade costs past that threshold.",
+            PrerequisiteNodeId = gatherFabricSpeedNode.Id,
+            PrerequisiteMinLevel = 5,
+            VisualPrerequisiteNodeId = autoKillNode.Id,
+            PosX = 680f,
+            PosY = 140f,
+            EffectKind = SkillTreeEffectKind.ScavengeUnlock,
+            EffectParam = (uint)(byte)ResourceType.Food,
+            BaseMaxLevel = 1,
+            BaseCost = 600,
+            BranchTier = 4
+        });
+
+        var forageEfficiencyNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Forage Efficiency",
+            Tooltip = "+1 Food per Forage completion per level.",
+            PrerequisiteNodeId = unlockFoodNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 680f,
+            PosY = 280f,
+            EffectKind = SkillTreeEffectKind.UpgradeActivity,
+            EffectParam = (uint)(byte)ActivityType.Forage,
+            BaseMaxLevel = 5,
+            BaseCost = 65,
+            BranchTier = 4
+        });
+
+        var forageSpeedNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Forage Speed",
+            Tooltip = "-0.1s Forage duration per level.",
+            PrerequisiteNodeId = forageEfficiencyNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 680f,
+            PosY = 420f,
+            EffectKind = SkillTreeEffectKind.ActivitySpeedUpgrade,
+            EffectParam = (uint)(byte)ActivityType.Forage,
+            BaseMaxLevel = 5,
+            BaseCost = 90,
+            BranchTier = 4
+        });
+
+        ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Auto Forage",
+            Tooltip = "Forage runs automatically on a recurring schedule.",
+            PrerequisiteNodeId = forageSpeedNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 680f,
+            PosY = 560f,
+            EffectKind = SkillTreeEffectKind.AutoActivity,
+            EffectParam = (uint)(byte)ActivityType.Forage,
+            BaseMaxLevel = 1,
+            BaseCost = 500,
+            BranchTier = 4
+        });
+
+        var unlockPartsNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Unlock Parts",
+            Tooltip = "Unlocks the Salvage activity. Previously leveled nodes gain +5 max level; Parts is added to upgrade costs past that threshold.",
+            PrerequisiteNodeId = forageSpeedNode.Id,
+            PrerequisiteMinLevel = 5,
+            VisualPrerequisiteNodeId = autoKillNode.Id,
+            PosX = 860f,
+            PosY = 140f,
+            EffectKind = SkillTreeEffectKind.ScavengeUnlock,
+            EffectParam = (uint)(byte)ResourceType.Parts,
+            BaseMaxLevel = 1,
+            BaseCost = 900,
+            BranchTier = 5
+        });
+
+        var salvageEfficiencyNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Salvage Efficiency",
+            Tooltip = "+1 Parts per Salvage completion per level.",
+            PrerequisiteNodeId = unlockPartsNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 860f,
+            PosY = 280f,
+            EffectKind = SkillTreeEffectKind.UpgradeActivity,
+            EffectParam = (uint)(byte)ActivityType.Salvage,
+            BaseMaxLevel = 5,
+            BaseCost = 100,
+            BranchTier = 5
+        });
+
+        var salvageSpeedNode = ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Salvage Speed",
+            Tooltip = "-0.1s Salvage duration per level.",
+            PrerequisiteNodeId = salvageEfficiencyNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 860f,
+            PosY = 420f,
+            EffectKind = SkillTreeEffectKind.ActivitySpeedUpgrade,
+            EffectParam = (uint)(byte)ActivityType.Salvage,
+            BaseMaxLevel = 5,
+            BaseCost = 140,
+            BranchTier = 5
+        });
+
+        ctx.Db.SkillTreeNode.Insert(new SkillTreeNode
+        {
+            Id = 0,
+            Name = "Auto Salvage",
+            Tooltip = "Salvage runs automatically on a recurring schedule.",
+            PrerequisiteNodeId = salvageSpeedNode.Id,
+            PrerequisiteMinLevel = 1,
+            VisualPrerequisiteNodeId = null,
+            PosX = 860f,
+            PosY = 560f,
+            EffectKind = SkillTreeEffectKind.AutoActivity,
+            EffectParam = (uint)(byte)ActivityType.Salvage,
+            BaseMaxLevel = 1,
+            BaseCost = 800,
+            BranchTier = 5
+        });
+
         Log.Info("Seeding storage chest structure");
 
         ctx.Db.StructureDefinition.Insert(new StructureDefinition

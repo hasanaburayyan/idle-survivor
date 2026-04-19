@@ -463,6 +463,8 @@ public partial class Activity : VBoxContainer
 		ActivityType.ChopWood => "Chop Wood",
 		ActivityType.Mine => "Mine",
 		ActivityType.GatherFabric => "Gather Fabric",
+		ActivityType.Forage => "Forage",
+		ActivityType.Salvage => "Salvage",
 		_ => type.ToString()
 	};
 

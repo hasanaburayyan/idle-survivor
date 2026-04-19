@@ -322,7 +322,7 @@ public partial class SkillTreeInner : Control
 			bool atMax = currentLevel >= maxLevel;
 			var costs = atMax
 				? new List<(ResourceType Type, ulong Amount)>()
-				: ComputeNextLevelCost(node, currentLevel, unlockedTiers);
+				: ComputeNextLevelCost(node, currentLevel);
 
 			bool canAfford = true;
 			foreach (var (t, a) in costs)
@@ -427,6 +427,7 @@ public partial class SkillTreeInner : Control
 	private static readonly ResourceType[] TierResources = new[]
 	{
 		ResourceType.Wood, ResourceType.Metal, ResourceType.Fabric,
+		ResourceType.Food, ResourceType.Parts,
 	};
 
 	private static uint ComputeEffectiveMaxLevel(SkillTreeNode node, uint unlockedTiers)
@@ -436,25 +437,24 @@ public partial class SkillTreeInner : Control
 		return node.BaseMaxLevel * (1 + unlockedTiers - node.BranchTier);
 	}
 
-	private static List<(ResourceType Type, ulong Amount)> ComputeNextLevelCost(SkillTreeNode node, uint currentLevel, uint unlockedTiers)
+	private static uint ComputeCostTier(SkillTreeNode node, uint currentLevel)
+	{
+		if (node.EffectKind == SkillTreeEffectKind.ScavengeUnlock)
+			return node.BranchTier > 0 ? node.BranchTier - 1 : 0;
+		uint nextLevel = currentLevel + 1;
+		uint band = (nextLevel - 1) / 5;
+		return node.BranchTier + band;
+	}
+
+	private static List<(ResourceType Type, ulong Amount)> ComputeNextLevelCost(SkillTreeNode node, uint currentLevel)
 	{
 		var costs = new List<(ResourceType, ulong)>();
 		ulong perResource = (ulong)Math.Max(1.0, Math.Floor(node.BaseCost * Math.Pow(1.5, currentLevel)));
-		uint nextLevel = currentLevel + 1;
-		uint T = node.BranchTier;
 
 		costs.Add((ResourceType.Money, perResource));
-
-		for (uint i = 1; i <= unlockedTiers && i <= TierResources.Length; i++)
-		{
-			bool include;
-			if (i < T) include = true;
-			else if (i == T) include = nextLevel >= 6;
-			else include = nextLevel > 5 * (i - T);
-
-			if (include)
-				costs.Add((TierResources[i - 1], perResource));
-		}
+		uint costTier = ComputeCostTier(node, currentLevel);
+		for (uint i = 1; i <= costTier && i <= TierResources.Length; i++)
+			costs.Add((TierResources[i - 1], perResource));
 
 		return costs;
 	}

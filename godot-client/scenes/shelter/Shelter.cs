@@ -162,14 +162,14 @@ public partial class Shelter : Node2D
 			SpacetimeNetworkManager.Instance?.Conn?.Reducers.DebugLevelUp();
 		};
 
-		var debugMoneyBtn = new Button();
-		debugMoneyBtn.Text = "+1k$";
-		debugMoneyBtn.AddThemeFontSizeOverride("font_size", 11);
-		debugMoneyBtn.Pressed += () =>
+		var debugResourcesBtn = new Button();
+		debugResourcesBtn.Text = "+1k all";
+		debugResourcesBtn.AddThemeFontSizeOverride("font_size", 11);
+		debugResourcesBtn.Pressed += () =>
 		{
-			SpacetimeNetworkManager.Instance?.Conn?.Reducers.DebugGrantMoney();
+			SpacetimeNetworkManager.Instance?.Conn?.Reducers.DebugGrantResources();
 		};
-		debugLevelUpBtn.GetParent().AddChild(debugMoneyBtn);
+		debugLevelUpBtn.GetParent().AddChild(debugResourcesBtn);
 
 		_skillsManager = new SkillsManager();
 		AddChild(_skillsManager);

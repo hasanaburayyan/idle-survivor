@@ -85,6 +85,8 @@ public static partial class Module {
         var unlockWoodNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Wood")?.Id;
         var unlockScrapMetalNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Scrap Metal")?.Id;
         var unlockFabricNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Fabric")?.Id;
+        var unlockFoodNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Food")?.Id;
+        var unlockPartsNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Parts")?.Id;
 
         ctx.Db.Activity.Insert(new Activity{
             Participant = ctx.Sender,
@@ -122,6 +124,32 @@ public static partial class Module {
             RequiredStructure = null,
             RequiredSkillId = null,
             RequiredSkillTreeNodeId = unlockFabricNodeId,
+            Level = 1
+        });
+
+        ctx.Db.Activity.Insert(new Activity{
+            Participant = ctx.Sender,
+            Type = ActivityType.Forage,
+            Cost = [],
+            DurationMs = 3000,
+            RequiredLocation = LocationType.Shelter,
+            RequiredLevel = null,
+            RequiredStructure = null,
+            RequiredSkillId = null,
+            RequiredSkillTreeNodeId = unlockFoodNodeId,
+            Level = 1
+        });
+
+        ctx.Db.Activity.Insert(new Activity{
+            Participant = ctx.Sender,
+            Type = ActivityType.Salvage,
+            Cost = [],
+            DurationMs = 3000,
+            RequiredLocation = LocationType.Shelter,
+            RequiredLevel = null,
+            RequiredStructure = null,
+            RequiredSkillId = null,
+            RequiredSkillTreeNodeId = unlockPartsNodeId,
             Level = 1
         });
 

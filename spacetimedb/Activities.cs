@@ -7,6 +7,8 @@ public enum ActivityType : byte
     ChopWood,
     Mine,
     GatherFabric,
+    Forage,
+    Salvage,
 }
 
 [SpacetimeDB.Type]
@@ -233,6 +235,12 @@ public static partial class Module
             case ActivityType.GatherFabric:
                 GatherFabricReward(ctx, arg.Participant);
                 break;
+            case ActivityType.Forage:
+                ForageReward(ctx, arg.Participant);
+                break;
+            case ActivityType.Salvage:
+                SalvageReward(ctx, arg.Participant);
+                break;
             default:
                 throw new Exception("Unknown scheduled activity type");
         }
@@ -240,7 +248,7 @@ public static partial class Module
         if (arg.IntervalMilliseconds is not null)
         {
             ulong nextInterval;
-            if (arg.type == ActivityType.ChopWood || arg.type == ActivityType.Mine || arg.type == ActivityType.GatherFabric)
+            if (arg.type != ActivityType.Scavenge)
             {
                 var activityRow = ctx.Db.Activity.by_activity_participant_type
                     .Filter((Participant: arg.Participant, Type: arg.type)).FirstOrDefault();
@@ -337,6 +345,26 @@ public static partial class Module
         GrantExperience(ctx, participant, 3);
     }
 
+    private static void ForageReward(ReducerContext ctx, Identity participant)
+    {
+        var skillLevel = GetSkillTreeLevelForEffect(ctx, participant,
+            SkillTreeEffectKind.UpgradeActivity, (uint)(byte)ActivityType.Forage);
+        var baseAmount = (ulong)Math.Max(1, GetStat(ctx, participant, StatType.Perception));
+        AddResourceToPlayer(ctx, participant, ResourceType.Food, baseAmount * 3 + skillLevel);
+
+        GrantExperience(ctx, participant, 3);
+    }
+
+    private static void SalvageReward(ReducerContext ctx, Identity participant)
+    {
+        var skillLevel = GetSkillTreeLevelForEffect(ctx, participant,
+            SkillTreeEffectKind.UpgradeActivity, (uint)(byte)ActivityType.Salvage);
+        var baseAmount = (ulong)Math.Max(1, GetStat(ctx, participant, StatType.Dexterity));
+        AddResourceToPlayer(ctx, participant, ResourceType.Parts, baseAmount * 3 + skillLevel);
+
+        GrantExperience(ctx, participant, 3);
+    }
+
     [SpacetimeDB.Reducer]
     public static void ActivityOnInterval(ReducerContext ctx, Identity participant, ActivityType type, ulong interval, bool reoccuring)
     {
@@ -363,6 +391,8 @@ public static partial class Module
         ScheduleAutoActivityIfEnabled(ctx, participant, ActivityType.ChopWood);
         ScheduleAutoActivityIfEnabled(ctx, participant, ActivityType.Mine);
         ScheduleAutoActivityIfEnabled(ctx, participant, ActivityType.GatherFabric);
+        ScheduleAutoActivityIfEnabled(ctx, participant, ActivityType.Forage);
+        ScheduleAutoActivityIfEnabled(ctx, participant, ActivityType.Salvage);
     }
 
     private static void ScheduleAutoActivityIfEnabled(ReducerContext ctx, Identity participant, ActivityType type)
@@ -428,6 +458,12 @@ public static partial class Module
                 break;
             case ActivityType.GatherFabric:
                 GatherFabricReward(ctx, task.Participant);
+                break;
+            case ActivityType.Forage:
+                ForageReward(ctx, task.Participant);
+                break;
+            case ActivityType.Salvage:
+                SalvageReward(ctx, task.Participant);
                 break;
             default:
                 throw new Exception("Unknown activity type");

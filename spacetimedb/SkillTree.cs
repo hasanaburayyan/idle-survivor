@@ -90,12 +90,15 @@ public static partial class Module
         return false;
     }
 
-    // Resources awarded by ScavengeUnlock markers, in tier order (Wood=1, Metal=2, Fabric=3, ...).
+    // Resources awarded by ScavengeUnlock markers, in tier order
+    // (Wood=1, Metal=2, Fabric=3, Food=4, Parts=5).
     private static readonly ResourceType[] TierResources = new[]
     {
         ResourceType.Wood,
         ResourceType.Metal,
         ResourceType.Fabric,
+        ResourceType.Food,
+        ResourceType.Parts,
     };
 
     public static uint CountUnlockedResourceTiers(ReducerContext ctx, Identity owner)
@@ -119,25 +122,30 @@ public static partial class Module
         return node.BaseMaxLevel * (1 + tiers - node.BranchTier);
     }
 
-    public static List<ActivityCost> GetNextLevelCost(SkillTreeNode node, uint currentLevel, uint unlockedTiers)
+    // Cost tier = which R_i resources are required to purchase the next level of this node.
+    // Rule: band k = (L - 1) / 5 where L is the level being purchased.
+    //   - Normal leveled / one-time nodes at tier T: cost tier = T + k.
+    //   - Tier markers (ScavengeUnlock): cost tier = T - 1 (can't pay in the resource being unlocked).
+    // So tier-0 L1-5 costs Money; L6-10 adds Wood; L11-15 adds Metal; L16-20 adds Fabric.
+    // Tier-1 L1-5 is Money + Wood; L6-10 adds Metal; etc.
+    public static uint GetCostTier(SkillTreeNode node, uint currentLevel)
+    {
+        if (node.EffectKind == SkillTreeEffectKind.ScavengeUnlock)
+            return node.BranchTier > 0 ? node.BranchTier - 1 : 0;
+        uint nextLevel = currentLevel + 1;
+        uint band = (nextLevel - 1) / 5;
+        return node.BranchTier + band;
+    }
+
+    public static List<ActivityCost> GetNextLevelCost(SkillTreeNode node, uint currentLevel)
     {
         var costs = new List<ActivityCost>();
         ulong perResource = (ulong)Math.Max(1.0, Math.Floor(node.BaseCost * Math.Pow(1.5, currentLevel)));
-        uint nextLevel = currentLevel + 1;
-        uint T = node.BranchTier;
 
         costs.Add(new ActivityCost { Type = ResourceType.Money, Amount = perResource });
-
-        for (uint i = 1; i <= unlockedTiers && i <= TierResources.Length; i++)
-        {
-            bool include;
-            if (i < T) include = true;
-            else if (i == T) include = nextLevel >= 6;
-            else include = nextLevel > 5 * (i - T);
-
-            if (include)
-                costs.Add(new ActivityCost { Type = TierResources[i - 1], Amount = perResource });
-        }
+        uint costTier = GetCostTier(node, currentLevel);
+        for (uint i = 1; i <= costTier && i <= TierResources.Length; i++)
+            costs.Add(new ActivityCost { Type = TierResources[i - 1], Amount = perResource });
 
         return costs;
     }
@@ -171,8 +179,7 @@ public static partial class Module
                 throw new Exception("Prerequisite not met");
         }
 
-        uint unlockedTiers = CountUnlockedResourceTiers(ctx, ctx.Sender);
-        var costs = GetNextLevelCost(node, currentLevel, unlockedTiers);
+        var costs = GetNextLevelCost(node, currentLevel);
         foreach (var cost in costs)
         {
             var rows = ctx.Db.ResourceTracker.by_owner_and_type

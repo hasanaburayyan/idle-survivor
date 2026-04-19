@@ -58,8 +58,13 @@ public static partial class Module {
     }
 
     [SpacetimeDB.Reducer]
-    public static void DebugGrantMoney(ReducerContext ctx) {
+    public static void DebugGrantResources(ReducerContext ctx) {
         AddResourceToPlayer(ctx, ctx.Sender, ResourceType.Money, 1000);
+        foreach (ResourceType rt in Enum.GetValues<ResourceType>()) {
+            if (rt == ResourceType.Money) continue;
+            if (HasScavengeUnlock(ctx, ctx.Sender, rt))
+                AddResourceToPlayer(ctx, ctx.Sender, rt, 1000);
+        }
     }
 
     [SpacetimeDB.Reducer]

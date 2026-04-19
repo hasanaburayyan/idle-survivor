@@ -57,7 +57,7 @@ public static partial class Module
     {
         foreach (var act in ctx.Db.Activity.Participant.Filter(participant))
         {
-            if ((byte)act.Type > (byte)ActivityType.GatherFabric)
+            if ((byte)act.Type > (byte)ActivityType.Salvage)
                 ctx.Db.Activity.Id.Delete(act.Id);
         }
     }
@@ -79,6 +79,8 @@ public static partial class Module
         var unlockWoodNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Wood")?.Id;
         var unlockScrapMetalNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Scrap Metal")?.Id;
         var unlockFabricNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Fabric")?.Id;
+        var unlockFoodNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Food")?.Id;
+        var unlockPartsNodeId = ctx.Db.SkillTreeNode.Name.Find("Unlock Parts")?.Id;
 
         UpsertActivity(ctx, participant, ActivityType.ChopWood, durationMs: 3000,
             requiredSkillTreeNodeId: unlockWoodNodeId);
@@ -86,6 +88,10 @@ public static partial class Module
             requiredSkillTreeNodeId: unlockScrapMetalNodeId);
         UpsertActivity(ctx, participant, ActivityType.GatherFabric, durationMs: 3000,
             requiredSkillTreeNodeId: unlockFabricNodeId);
+        UpsertActivity(ctx, participant, ActivityType.Forage, durationMs: 3000,
+            requiredSkillTreeNodeId: unlockFoodNodeId);
+        UpsertActivity(ctx, participant, ActivityType.Salvage, durationMs: 3000,
+            requiredSkillTreeNodeId: unlockPartsNodeId);
     }
 
     private static void UpsertActivity(
